@@ -179,6 +179,11 @@ func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amo
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
+// R S V
+func (tx *Transaction) R() *big.Int        { return tx.data.R }
+func (tx *Transaction) S() *big.Int        { return tx.data.S }
+func (tx *Transaction) V() *big.Int        { return tx.data.V }
+
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {

@@ -25,6 +25,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+
+	// Add
+	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -92,9 +96,32 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
+
+	// Record related info
+	print("ApplyTransaction\n")
+	print("block hash is ", statedb.BlockHash().Hex(), "\n")
+	print("block number is ", header.Number.String(), "\n")
+	print("from is ", msg.From().String(), "\n")
+	print("gas is ", tx.Gas(), "\n")
+	print("gasPrice is ", tx.GasPrice().String(), "\n")
+	print("hash is ", tx.Hash().Hex(), "\n")
+	print("input is ", hexutil.Encode(tx.Data()), "\n")
+	print("Nonce is ", tx.Nonce(), "\n")
+	print("r is ", fmt.Sprintf("0x%x", tx.R()), "\n")
+	print("s is ", fmt.Sprintf("0x%x", tx.S()), "\n")
+	print("to is ", tx.To(), "\n")
+	print("index is ", statedb.TxIndex(), "\n")
+	print("v is ", fmt.Sprintf("0x%x", tx.V()), "\n")
+	print("value is, ", msg.Value().String(), "\n")
+
+	txstring := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s", statedb.BlockHash().Hex(),
+		header.Number.String(), msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), tx.Hash().Hex(),
+		hexutil.Encode(tx.Data()), fmt.Sprintf("%d", tx.Nonce()), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()),
+		tx.To(), fmt.Sprintf("%d", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String())
+	
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	vmenv := vm.NewEVMWithTx(context, statedb, config, cfg, txstring)
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
@@ -124,6 +151,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+
+	print("after, block hash is ", statedb.BlockHash().Hex(), "\n")
 
 	return receipt, gas, err
 }

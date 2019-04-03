@@ -24,7 +24,35 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/params"
+
+	"gopkg.in/mgo.v2"		
+	"gopkg.in/mgo.v2/bson"
+	"strings"
 )
+
+// Databse 1, store the basic transaction metadata
+type Transac struct {
+	Tx_BlockHash string
+	Tx_BlockNum string 
+	Tx_FromAddr string
+	Tx_Gas string
+	Tx_GasPrice string
+    Tx_Hash string 
+    Tx_Input string 
+    Tx_Nonce string
+    Tx_R string
+    Tx_S string
+    Tx_ToAddr string
+    Tx_Index string
+    Tx_V string
+    Tx_Value string
+}
+
+// Database 2, store the basic transaction metadata
+type Trace struct {
+    Tx_Hash string
+    Tx_Trace string
+}
 
 // Config are the configuration options for the Interpreter
 type Config struct {
@@ -116,6 +144,33 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 // considered a revert-and-consume-all-gas operation except for
 // errExecutionReverted which means revert-and-keep-gas-left.
 func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
+	// Open the MongoDB
+	session, err := mgo.Dial("")
+    if err != nil {
+            panic(err)
+    }
+
+    // Close it after finish running
+    defer func() { session.Close() }()
+
+    // Write to database Transaction
+    db_tx := session.DB("geth").C("transaction")
+    tx_exist, err := db_tx.Find(bson.M{"tx_hash": contract.currentTx}).Count()
+
+    // Pasrse the transaction related info
+    reses := strings.Split(contract.currentTx, "|")
+
+    if err != nil {
+        panic(err)
+    }
+    if tx_exist == 0 {
+    	err = db_tx.Insert(&Transac{reses[0], reses[1], reses[2], reses[3], reses[4], reses[5], reses[6], reses[7], reses[8], 
+    		reses[9], reses[10], reses[11], reses[12], reses[13]})
+	    if err != nil {
+	            panic(err)
+	    }
+    }
+
 	if in.intPool == nil {
 		in.intPool = poolOfIntPools.get()
 		defer func() {
@@ -175,6 +230,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			}
 		}()
 	}
+
+	// Record every opcode execution trace
+	tx_trace := ""
+
 	// The Interpreter main run loop (contextual). This loop runs until either an
 	// explicit STOP, RETURN or SELFDESTRUCT is executed, an error occurred during
 	// the execution of one of the operations or until the done flag is set by the
@@ -188,6 +247,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Get the operation from the jump table and validate the stack to ensure there are
 		// enough stack items available to perform the operation.
 		op = contract.GetOp(pc)
+
+		// Reserve the old program counter		
+		old_pc := pc
+
 		operation := in.cfg.JumpTable[op]
 		if !operation.valid {
 			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
@@ -248,8 +311,36 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 
-		// execute the operation
-		res, err = operation.execute(&pc, in, contract, mem, stack)
+		// Write trace to the database
+		vandal_constant := ""
+		res, vandal_constant, err = operation.execute(&pc, in, contract, mem, stack)
+		tx_trace = fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant)
+		db_tr := session.DB("geth").C("trace")
+		exist, err := db_tr.Find(bson.M{"tx_hash": contract.currentTx}).Count()
+	    if err != nil {
+	        panic(err)
+	    }
+	    if exist == 0 {
+	    	err = db_tr.Insert(&Trace{reses[0], tx_trace})
+		    if err != nil {
+		            panic(err)
+		    }
+	    } else {
+	    	// Find
+	    	result := Trace{}
+			err = db_tr.Find(bson.M{"tx_hash": contract.currentTx}).One(&result)
+			if err != nil {
+				panic(err)
+			}
+	    	// Update
+			selector := bson.M{"tx_hash": contract.currentTx}
+			change := bson.M{"$set": bson.M{"tx_hash": contract.currentTx, "tx_trace": fmt.Sprintf("%s|%s", result.Tx_Trace, tx_trace)}}
+			err = db_tr.Update(selector, change)
+		    if err != nil {
+		        panic(err)
+		    }
+	    }
+
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
 		if verifyPool {

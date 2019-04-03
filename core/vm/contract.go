@@ -59,6 +59,9 @@ type Contract struct {
 
 	Gas   uint64
 	value *big.Int
+
+	// Store all the related info about a transaction
+	currentTx string
 }
 
 // NewContract returns a new contract environment for the execution of EVM.
