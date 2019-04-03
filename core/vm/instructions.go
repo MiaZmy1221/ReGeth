@@ -1021,12 +1021,16 @@ func opPush1(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 		integer = interpreter.intPool.get()
 	)
 	*pc += 1
+
+	value :=  big.NewInt(0)
 	if *pc < codeLen {
-		stack.push(integer.SetUint64(uint64(contract.Code[*pc])))
+		value = integer.SetUint64(uint64(contract.Code[*pc]))
+		stack.push(value)
 	} else {
-		stack.push(integer.SetUint64(0))
+		value = integer.SetUint64(0)
+		stack.push(value)
 	}
-	return nil, "", nil
+	return nil, value.String(), nil
 }
 
 // make push instruction function
@@ -1051,7 +1055,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 		stack.push(value)
 
 		*pc += size
-		return nil, stack.peek().String(), nil
+		return nil, value.String(), nil
 	}
 }
 

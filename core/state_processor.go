@@ -31,6 +31,23 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+// Database 3: receipt
+type Rece struct{
+	// PostState
+	Re_Status  bool
+	Re_CumulativeGasUsed string
+	// Bloom
+	Re_Logs string
+	Re_TxHash string
+	Re_contractAddress string
+	Re_GasUsed string
+	// Those fields have already been stored into the database transaction
+	// BlockHash
+	// BlockNumber
+	// TransactionIndex
+}
+
+
 // StateProcessor is a basic Processor, which takes care of transitioning
 // state from one point to another.
 //
@@ -98,7 +115,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	context := NewEVMContext(msg, header, bc, author)
 
 	// Record related info
-	print("ApplyTransaction\n")
+	print("ApplyTransaction Transaction\n")
 	print("block hash is ", statedb.BlockHash().Hex(), "\n")
 	print("block number is ", header.Number.String(), "\n")
 	print("from is ", msg.From().String(), "\n")
@@ -109,16 +126,22 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	print("Nonce is ", tx.Nonce(), "\n")
 	print("r is ", fmt.Sprintf("0x%x", tx.R()), "\n")
 	print("s is ", fmt.Sprintf("0x%x", tx.S()), "\n")
-	print("to is ", tx.To(), "\n")
+	toaddr := ""
+	if msg.To() == nil {
+		toaddr = "0x0"
+	} else {
+		tempt := *msg.To()
+		toaddr = tempt.String()
+	}
+	print("to is ", toaddr, "\n")
 	print("index is ", statedb.TxIndex(), "\n")
 	print("v is ", fmt.Sprintf("0x%x", tx.V()), "\n")
 	print("value is, ", msg.Value().String(), "\n")
 
-	txstring := fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s", statedb.BlockHash().Hex(),
-		header.Number.String(), msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), tx.Hash().Hex(),
-		hexutil.Encode(tx.Data()), fmt.Sprintf("%d", tx.Nonce()), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()),
-		tx.To(), fmt.Sprintf("%d", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String())
-	
+	txstring := fmt.Sprintf("%s|%s|%s|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%s", statedb.BlockHash().Hex(),
+			header.Number.String(), msg.From().String(), tx.Gas(), tx.GasPrice().String(), tx.Hash().Hex(),
+			hexutil.Encode(tx.Data()), tx.Nonce(), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()),
+			toaddr, statedb.TxIndex(), fmt.Sprintf("0x%x", tx.V()), msg.Value().String())
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVMWithTx(context, statedb, config, cfg, txstring)
@@ -152,7 +175,13 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	print("after, block hash is ", statedb.BlockHash().Hex(), "\n")
+	print("ApplyTransaction Receipt\n")
+	print("status is ", receipt.Status, "\n")
+	print("cumulativegasused is ", receipt.CumulativeGasUsed, "\n")
+	// print("logs are ", receipt.Logs.String(), "\n")
+	print("txhash is ", receipt.TxHash.Hex(), "\n")
+	print("contract address is ", receipt.ContractAddress.String(), "\n")
+	print("Gasused is ", receipt.GasUsed, "\n")
 
 	return receipt, gas, err
 }
