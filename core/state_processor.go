@@ -133,19 +133,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
-
-	// Record related info
-	print("ApplyTransaction Transaction\n")
-	print("block hash is ", statedb.BlockHash().Hex(), "\n")
-	print("block number is ", header.Number.String(), "\n")
-	print("from is ", msg.From().String(), "\n")
-	print("gas is ", tx.Gas(), "\n")
-	print("gasPrice is ", tx.GasPrice().String(), "\n")
-	print("hash is ", tx.Hash().Hex(), "\n")
-	print("input is ", hexutil.Encode(tx.Data()), "\n")
-	print("Nonce is ", tx.Nonce(), "\n")
-	print("r is ", fmt.Sprintf("0x%x", tx.R()), "\n")
-	print("s is ", fmt.Sprintf("0x%x", tx.S()), "\n")
 	toaddr := ""
 	if msg.To() == nil {
 		toaddr = "0x0"
@@ -153,15 +140,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		tempt := *msg.To()
 		toaddr = tempt.String()
 	}
-	print("to is ", toaddr, "\n")
-	print("index is ", statedb.TxIndex(), "\n")
-	print("v is ", fmt.Sprintf("0x%x", tx.V()), "\n")
-	print("value is, ", msg.Value().String(), "\n")
-
-	// txstring := fmt.Sprintf("%s|%s|%s|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%s", statedb.BlockHash().Hex(),
-	//		header.Number.String(), msg.From().String(), tx.Gas(), tx.GasPrice().String(), tx.Hash().Hex(),
-	//		hexutil.Encode(tx.Data()), tx.Nonce(), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()),
-	//		toaddr, statedb.TxIndex(), fmt.Sprintf("0x%x", tx.V()), msg.Value().String())
 
 	session, err := mgo.Dial("")
 	if err != nil {
@@ -212,15 +190,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-
-	print("ApplyTransaction Receipt\n")
-	print("contract address is ", receipt.ContractAddress.String(), "\n")
-	print("cumulativegasused is ", receipt.CumulativeGasUsed, "\n")
-	print("Gasused is ", receipt.GasUsed, "\n")
-	print("logs are ", fmt.Sprintf("%s", receipt.Logs), "\n")
-	print("logsbloom are ", fmt.Sprintf("0x%x", receipt.Bloom.Big()), "\n")
-	print("status is ", receipt.Status, "\n")
-	print("txhash is ", receipt.TxHash.Hex(), "\n")
 
 	db_re := session.DB("geth").C("receipt")
 	re_exist, err := db_re.Find(bson.M{"tx_hash": receipt.TxHash.Hex()}).Count()
