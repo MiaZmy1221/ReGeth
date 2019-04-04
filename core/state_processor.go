@@ -29,21 +29,41 @@ import (
 	// Add
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+ 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
+
+// Databse 1, store the basic transaction metadata
+type Transac struct {
+	Tx_BlockHash string
+	Tx_BlockNum string 
+	Tx_FromAddr string
+	Tx_Gas string
+	Tx_GasPrice string
+	Tx_Hash string 
+	Tx_Input string 
+	Tx_Nonce string
+	Tx_R string
+ 	Tx_S string
+	Tx_ToAddr string
+	Tx_Index string
+	Tx_V string
+	Tx_Value string
+}
 
 // Database 3: receipt
 type Rece struct{
-	// PostState
-	Re_Status  bool
-	Re_CumulativeGasUsed string
-	// Bloom
-	Re_Logs string
-	Re_TxHash string
-	Re_contractAddress string
-	Re_GasUsed string
-	// Those fields have already been stored into the database transaction
 	// BlockHash
 	// BlockNumber
+	Re_contractAddress string
+	Re_CumulativeGasUsed string
+	// from
+	Re_GasUsed string
+	Re_Logs string
+	Re_LogsBloom string
+	Re_Status  string
+	// to
+	Re_TxHash string
 	// TransactionIndex
 }
 
@@ -138,13 +158,31 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	print("v is ", fmt.Sprintf("0x%x", tx.V()), "\n")
 	print("value is, ", msg.Value().String(), "\n")
 
-	txstring := fmt.Sprintf("%s|%s|%s|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%s", statedb.BlockHash().Hex(),
-			header.Number.String(), msg.From().String(), tx.Gas(), tx.GasPrice().String(), tx.Hash().Hex(),
-			hexutil.Encode(tx.Data()), tx.Nonce(), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()),
-			toaddr, statedb.TxIndex(), fmt.Sprintf("0x%x", tx.V()), msg.Value().String())
+	// txstring := fmt.Sprintf("%s|%s|%s|%d|%s|%s|%s|%d|%s|%s|%s|%d|%s|%s", statedb.BlockHash().Hex(),
+	//		header.Number.String(), msg.From().String(), tx.Gas(), tx.GasPrice().String(), tx.Hash().Hex(),
+	//		hexutil.Encode(tx.Data()), tx.Nonce(), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()),
+	//		toaddr, statedb.TxIndex(), fmt.Sprintf("0x%x", tx.V()), msg.Value().String())
+
+	session, err := mgo.Dial("")
+	if err != nil {
+		panic(err)
+	}
+	defer func() { session.Close() }()
+
+	db_tx := session.DB("geth").C("transaction")
+	tx_exist, err := db_tx.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
+	if err != nil {
+		panic(err)
+	}
+	if tx_exist == 0 {
+		err := db_tx.Insert(&Transac{statedb.BlockHash().Hex(), header.Number.String(), msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("%d", tx.Nonce()), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()), toaddr, fmt.Sprintf("%d", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()})
+		if err != nil {
+			panic(err)
+		}
+	}
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVMWithTx(context, statedb, config, cfg, txstring)
+	vmenv := vm.NewEVMWithTx(context, statedb, config, cfg, tx.Hash().Hex())
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
@@ -176,12 +214,25 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	print("ApplyTransaction Receipt\n")
-	print("status is ", receipt.Status, "\n")
-	print("cumulativegasused is ", receipt.CumulativeGasUsed, "\n")
-	// print("logs are ", receipt.Logs.String(), "\n")
-	print("txhash is ", receipt.TxHash.Hex(), "\n")
 	print("contract address is ", receipt.ContractAddress.String(), "\n")
+	print("cumulativegasused is ", receipt.CumulativeGasUsed, "\n")
 	print("Gasused is ", receipt.GasUsed, "\n")
+	print("logs are ", fmt.Sprintf("%s", receipt.Logs), "\n")
+	print("logsbloom are ", fmt.Sprintf("0x%x", receipt.Bloom.Big()), "\n")
+	print("status is ", receipt.Status, "\n")
+	print("txhash is ", receipt.TxHash.Hex(), "\n")
+
+	db_re := session.DB("geth").C("receipt")
+	re_exist, err := db_re.Find(bson.M{"tx_hash": receipt.TxHash.Hex()}).Count()
+	if err != nil {
+        	panic(err)
+	}
+	if re_exist == 0 {
+		err = db_re.Insert(&Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
+			fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("%s", receipt.Logs),		
+			fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
+			receipt.TxHash.Hex()})
+	}
 
 	return receipt, gas, err
 }
