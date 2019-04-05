@@ -25,6 +25,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+
+	"gopkg.in/mgo.v2"
+	// "gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -213,6 +216,20 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	if vmerr != nil {
+		// print("TransitionDb vm err is ", vmerr.Error(), "\n")
+		// print("TransitionDb tx hash is ", evm.EVMCurrentTx(), "\n")
+		// write the error reason to database
+		session, err := mgo.Dial("")
+		if err != nil {
+			panic(err)
+		}
+		defer func() { session.Close() }()
+		db_re := session.DB("geth").C("receipt")
+		err = db_re.Insert(&Rece{"", "", "", "", "", "", evm.EVMCurrentTx(), vmerr.Error()})
+		if err != nil {
+	        panic(err)
+		}
+
 		log.Debug("VM returned with error", "err", vmerr)
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen. The first

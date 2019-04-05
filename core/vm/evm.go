@@ -132,6 +132,11 @@ type EVM struct {
 	currentTx string
 }
 
+// Return the current tx hash, which is used by the file state_transition
+func (evm *EVM) EVMCurrentTx() string {
+	return evm.currentTx
+}
+
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {

@@ -65,6 +65,8 @@ type Rece struct{
 	// to
 	Re_TxHash string
 	// TransactionIndex
+	// Store the pre-execution error
+	Re_FailReason string
 }
 
 
@@ -127,8 +129,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+	// print("*************************************************")
+	// print("possible errors. ", tx.Hash().Hex(), "\n")
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
+		// print("AsMessage err is ", err)
 		return nil, 0, err
 	}
 	// Create a new context to be used in the EVM environment
@@ -153,7 +158,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		panic(err)
 	}
 	if tx_exist == 0 {
-		err := db_tx.Insert(&Transac{statedb.BlockHash().Hex(), header.Number.String(), msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("%d", tx.Nonce()), fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()), toaddr, fmt.Sprintf("%d", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()})
+		err := db_tx.Insert(&Transac{statedb.BlockHash().Hex(), header.Number.String(), 
+					msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), 
+					tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("0x%x", tx.Nonce()), 
+					fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()), toaddr, 
+					fmt.Sprintf("0x%x", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()})
 		if err != nil {
 			panic(err)
 		}
@@ -164,8 +173,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
+		// print("ApplyMessage err is ", err.Error(), "\n")
 		return nil, 0, err
 	}
+	// print("failed before byzantium ", failed, "\n")
+
 	// Update the state with pending changes
 	var root []byte
 	if config.IsByzantium(header.Number) {
@@ -190,17 +202,41 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+	// print("receipt status", receipt.Status, "\n")
 
 	db_re := session.DB("geth").C("receipt")
-	re_exist, err := db_re.Find(bson.M{"tx_hash": receipt.TxHash.Hex()}).Count()
+	re_exist, err := db_re.Find(bson.M{"re_txhash": receipt.TxHash.Hex()}).Count()
 	if err != nil {
         	panic(err)
 	}
+	// If the transaction does not exist, just insert it with the fail reason = ""
 	if re_exist == 0 {
 		err = db_re.Insert(&Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
 			fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("%s", receipt.Logs),		
 			fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
-			receipt.TxHash.Hex()})
+			receipt.TxHash.Hex(), ""})
+		if err != nil {
+	        panic(err)
+		}
+	} else {
+		// If the transaction does exist, just insert it with the fail reason = ""
+		// Find
+    	result := Rece{}
+		err = db_re.Find(bson.M{"re_txhash": receipt.TxHash.Hex()}).One(&result)
+		if err != nil {
+			panic(err)
+		}
+    	// Update
+		selector := bson.M{"re_txhash": receipt.TxHash.Hex()}
+		change := bson.M{"$set": bson.M{"re_contractaddress": receipt.ContractAddress.String(), 
+						"re_cumulativegasused": fmt.Sprintf("%d", receipt.CumulativeGasUsed), 
+						"re_gasused": fmt.Sprintf("%d", receipt.GasUsed), "re_logs": fmt.Sprintf("%s", receipt.Logs), 
+						"re_logsbloom": fmt.Sprintf("0x%x", receipt.Bloom.Big()), "re_status": fmt.Sprintf("0x%d", receipt.Status), 
+						"re_txhash": receipt.TxHash.Hex(), "re_failreason": result.Re_FailReason}}
+		err = db_re.Update(selector, change)
+	   	if err != nil {
+	        panic(err)
+		}
 	}
 
 	return receipt, gas, err
