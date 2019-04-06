@@ -126,12 +126,12 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 // errExecutionReverted which means revert-and-keep-gas-left.
 func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
 	// Open the MongoDB
-	session, err := mgo.Dial("")
-    	if err != nil {
-        	panic(err)
-    	}
-    	// Close it after finish running
-    	defer func() { session.Close() }()
+	session, session_err := mgo.Dial("")
+	if session_err != nil {
+    	panic(session_err)
+	}
+    // Close it after finish running
+    defer func() { session.Close() }()
 
 	if in.intPool == nil {
 		in.intPool = poolOfIntPools.get()
@@ -276,9 +276,9 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Write trace to the database
 		vandal_constant := ""
 		res, vandal_constant, err = operation.execute(&pc, in, contract, mem, stack)
-		if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
-                print("tx pc ", old_pc, " opstring ", op.String(), " gas ", cost, "\n")
-        }
+		// if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
+  		//      print("tx pc ", old_pc, " opstring ", op.String(), " gas ", cost, "\n")
+  		// }
 
 		tx_trace = fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant)
 		

@@ -691,9 +691,9 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 
 func opJump(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, string, error) {
 	pos := stack.pop()
-	if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
-		print("OPjump invalid jump error pos is ", pos.String(), "\n")
-	}
+	// if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
+	// 	print("OPjump invalid jump error pos is ", pos.String(), "\n")
+	// }
 	if !contract.validJumpdest(pos) {
 		return nil, "", errInvalidJump
 	}
@@ -705,9 +705,9 @@ func opJump(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 
 func opJumpi(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, string, error) {
 	pos, cond := stack.pop(), stack.pop()
-	if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
-		print("OPjumpi invalid jump error pos is ", pos.String(), "\n")
-	}
+	// if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
+	// 	print("OPjumpi invalid jump error pos is ", pos.String(), "\n")
+	// }
 	if cond.Sign() != 0 {
 		if !contract.validJumpdest(pos) {
 			return nil, "", errInvalidJump
