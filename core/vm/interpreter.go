@@ -276,33 +276,37 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Write trace to the database
 		vandal_constant := ""
 		res, vandal_constant, err = operation.execute(&pc, in, contract, mem, stack)
+		if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
+                print("tx pc ", old_pc, " opstring ", op.String(), " gas ", cost, "\n")
+        }
+
 		tx_trace = fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant)
 		
 		db_tr := session.DB("geth").C("trace")
-		tr_exist, err := db_tr.Find(bson.M{"tx_hash": contract.currentTx}).Count()
-	   	if err != nil {
-	        	panic(err)
+		tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": contract.currentTx}).Count()
+	   	if session_err != nil {
+	        panic(session_err)
+	    }
+	    if tr_exist == 0 {
+    		session_err = db_tr.Insert(&Trace{contract.currentTx, tx_trace})
+	    	if session_err != nil {
+	            	panic(session_err)
 	    	}
-	    	if tr_exist == 0 {
-	    		err = db_tr.Insert(&Trace{contract.currentTx, tx_trace})
-		    	if err != nil {
-		            	panic(err)
-		    	}
-	    	} else {
-	    		// Find
-	    		result := Trace{}
-			err = db_tr.Find(bson.M{"tx_hash": contract.currentTx}).One(&result)
-			if err != nil {
-				panic(err)
+	    } else {
+	    	// Find
+	    	result := Trace{}
+			session_err = db_tr.Find(bson.M{"tx_hash": contract.currentTx}).One(&result)
+			if session_err != nil {
+				panic(session_err)
 			}
 	    		// Update
 			selector := bson.M{"tx_hash": contract.currentTx}
 			change := bson.M{"$set": bson.M{"tx_hash": contract.currentTx, "tx_trace": fmt.Sprintf("%s|%s", result.Tx_Trace, tx_trace)}}
-			err = db_tr.Update(selector, change)
-		   	if err != nil {
-		        	panic(err)
-		    	}
-	    	}
+			session_err = db_tr.Update(selector, change)
+		   	if session_err != nil {
+		        panic(session_err)
+		    }
+	    }
 
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.

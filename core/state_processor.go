@@ -130,7 +130,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
 	// print("*************************************************")
-	// print("possible errors. ", tx.Hash().Hex(), "\n")
+	print("tx hash is ", tx.Hash().Hex(), "\n")
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		// print("AsMessage err is ", err)
@@ -146,25 +146,25 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		toaddr = tempt.String()
 	}
 
-	session, err := mgo.Dial("")
-	if err != nil {
-		panic(err)
+	session, session_err := mgo.Dial("")
+	if session_err != nil {
+		panic(session_err)
 	}
 	defer func() { session.Close() }()
 
 	db_tx := session.DB("geth").C("transaction")
-	tx_exist, err := db_tx.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
-	if err != nil {
-		panic(err)
+	tx_exist, session_err := db_tx.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
+	if session_err != nil {
+		panic(session_err)
 	}
 	if tx_exist == 0 {
-		err := db_tx.Insert(&Transac{statedb.BlockHash().Hex(), header.Number.String(), 
+		session_err := db_tx.Insert(&Transac{statedb.BlockHash().Hex(), header.Number.String(), 
 					msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), 
 					tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("0x%x", tx.Nonce()), 
 					fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()), toaddr, 
 					fmt.Sprintf("0x%x", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()})
-		if err != nil {
-			panic(err)
+		if session_err != nil {
+			panic(session_err)
 		}
 	}
 	// Create a new environment which holds all relevant information

@@ -219,15 +219,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// print("TransitionDb vm err is ", vmerr.Error(), "\n")
 		// print("TransitionDb tx hash is ", evm.EVMCurrentTx(), "\n")
 		// write the error reason to database
-		session, err := mgo.Dial("")
-		if err != nil {
-			panic(err)
+		session, session_err := mgo.Dial("")
+		if session_err != nil {
+			panic(session_err)
 		}
 		defer func() { session.Close() }()
 		db_re := session.DB("geth").C("receipt")
-		err = db_re.Insert(&Rece{"", "", "", "", "", "", evm.EVMCurrentTx(), vmerr.Error()})
-		if err != nil {
-	        panic(err)
+		session_err = db_re.Insert(&Rece{"", "", "", "", "", "", evm.EVMCurrentTx(), vmerr.Error()})
+		if session_err != nil {
+	        panic(session_err)
 		}
 
 		log.Debug("VM returned with error", "err", vmerr)
