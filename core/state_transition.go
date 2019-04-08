@@ -26,12 +26,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"gopkg.in/mgo.v2"
+	// "gopkg.in/mgo.v2"
 	// "gopkg.in/mgo.v2/bson"
+	// "github.com/ethereum/go-ethereum/mongo"
 )
 
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
+	VMErr = ""
 )
 
 /*
@@ -216,19 +218,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	if vmerr != nil {
-		// print("TransitionDb vm err is ", vmerr.Error(), "\n")
-		// print("TransitionDb tx hash is ", evm.EVMCurrentTx(), "\n")
-		// write the error reason to database
-		session, session_err := mgo.Dial("")
-		if session_err != nil {
-			panic(session_err)
-		}
-		defer func() { session.Close() }()
-		db_re := session.DB("geth").C("receipt")
-		session_err = db_re.Insert(&Rece{"", "", "", "", "", "", evm.EVMCurrentTx(), vmerr.Error()})
-		if session_err != nil {
-	        panic(session_err)
-		}
+		VMErr = vmerr.Error()
 
 		log.Debug("VM returned with error", "err", vmerr)
 		// The only possible consensus-error would be if there wasn't

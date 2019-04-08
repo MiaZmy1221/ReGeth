@@ -29,8 +29,10 @@ import (
 	// Add
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
- 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"github.com/ethereum/go-ethereum/mongo"
+	"encoding/json"
+
 )
 
 // Databse 1, store the basic transaction metadata
@@ -129,11 +131,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
-	// print("*************************************************")
-	// print("tx hash is ", tx.Hash().Hex(), "\n")
+	// print("transaction hash is ", tx.Hash().Hex())
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
-		// print("AsMessage err is ", err)
 		return nil, 0, err
 	}
 	// Create a new context to be used in the EVM environment
@@ -146,10 +146,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		toaddr = tempt.String()
 	}
 
-	session, session_err := mgo.Dial("")
-	if session_err != nil {
-		panic(session_err)
-	}
+	// Use the global session defined in other places
+	session  := mongo.SessionGlobal.Clone()
 	defer func() { session.Close() }()
 
 	db_tx := session.DB("geth").C("transaction")
@@ -173,10 +171,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
-		// print("ApplyMessage err is ", err.Error(), "\n")
 		return nil, 0, err
 	}
-	// print("failed before byzantium ", failed, "\n")
 
 	// Update the state with pending changes
 	var root []byte
@@ -202,42 +198,29 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-	// print("receipt status", receipt.Status, "\n")
 
 	db_re := session.DB("geth").C("receipt")
-	re_exist, err := db_re.Find(bson.M{"re_txhash": receipt.TxHash.Hex()}).Count()
-	if err != nil {
-        	panic(err)
+	re_exist, session_err := db_re.Find(bson.M{"re_txhash": receipt.TxHash.Hex()}).Count()
+	if session_err != nil {
+        	panic(session_err)
 	}
-	// If the transaction does not exist, just insert it with the fail reason = ""
-	if re_exist == 0 {
-		err = db_re.Insert(&Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
-			fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("%s", receipt.Logs),		
+
+	re_final_log := ""
+    for i := 0; i < len(receipt.Logs); i++ {
+            res, _ := json.Marshal(receipt.Logs[i])
+            re_final_log = fmt.Sprintf("%s\n%s", re_final_log, string(res))
+    }
+
+    if re_exist == 0 {
+		session_err = db_re.Insert(&Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
+			fmt.Sprintf("%d", receipt.GasUsed), re_final_log,		
 			fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
-			receipt.TxHash.Hex(), ""})
-		if err != nil {
-	        panic(err)
-		}
-	} else {
-		// If the transaction does exist, just insert it with the fail reason = ""
-		// Find
-    	result := Rece{}
-		err = db_re.Find(bson.M{"re_txhash": receipt.TxHash.Hex()}).One(&result)
-		if err != nil {
-			panic(err)
-		}
-    	// Update
-		selector := bson.M{"re_txhash": receipt.TxHash.Hex()}
-		change := bson.M{"$set": bson.M{"re_contractaddress": receipt.ContractAddress.String(), 
-						"re_cumulativegasused": fmt.Sprintf("%d", receipt.CumulativeGasUsed), 
-						"re_gasused": fmt.Sprintf("%d", receipt.GasUsed), "re_logs": fmt.Sprintf("%s", receipt.Logs), 
-						"re_logsbloom": fmt.Sprintf("0x%x", receipt.Bloom.Big()), "re_status": fmt.Sprintf("0x%d", receipt.Status), 
-						"re_txhash": receipt.TxHash.Hex(), "re_failreason": result.Re_FailReason}}
-		err = db_re.Update(selector, change)
-	   	if err != nil {
-	        panic(err)
+			receipt.TxHash.Hex(), VMErr})
+		if session_err != nil {
+	        panic(session_err)
 		}
 	}
+
 
 	return receipt, gas, err
 }

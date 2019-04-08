@@ -62,6 +62,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				evm.interpreter = interpreter
 			}
 			contract.currentTx = evm.currentTx
+			// print("tx is run by EVM twice??? ", contract.currentTx)
 			return interpreter.Run(contract, input, readOnly)
 		}
 	}
@@ -183,6 +184,10 @@ func NewEVMWithTx(ctx Context, statedb StateDB, chainConfig *params.ChainConfig,
 		chainRules:   chainConfig.Rules(ctx.BlockNumber),
 		interpreters: make([]Interpreter, 0, 1),
 		currentTx: txHash,
+	}
+
+	if LastTransactionGlobal == "" {
+		LastTransactionGlobal = txHash
 	}
 
 	if chainConfig.IsEWASM(ctx.BlockNumber) {

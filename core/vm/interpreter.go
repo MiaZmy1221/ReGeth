@@ -25,14 +25,19 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/params"
 
-	"gopkg.in/mgo.v2"		
+	// "gopkg.in/mgo.v2"		
 	"gopkg.in/mgo.v2/bson"
+	"github.com/ethereum/go-ethereum/mongo"
+	// "os"
 )
+
+var LastTransactionGlobal = ""
+var TraceGlobal = ""
 
 // Database 2, store the basic transaction metadata
 type Trace struct {
-    	Tx_Hash string
-    	Tx_Trace string
+	Tx_Hash string
+	Tx_Trace string
 }
 
 // Config are the configuration options for the Interpreter
@@ -125,13 +130,33 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 // considered a revert-and-consume-all-gas operation except for
 // errExecutionReverted which means revert-and-keep-gas-left.
 func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
-	// Open the MongoDB
-	session, session_err := mgo.Dial("")
-	if session_err != nil {
-    	panic(session_err)
+	// // Test whether the trace is correct or not
+	// f, open_err := os.OpenFile(fmt.Sprintf("%s.txt", contract.currentTx), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// if open_err != nil {
+	// 	panic(open_err)
+	// }
+	// defer f.Close()
+
+	if LastTransactionGlobal != contract.currentTx {
+		// insert trace into trace
+		session := mongo.SessionGlobal.Clone()
+    	defer func() { session.Close() }()
+
+		db_tr := session.DB("geth").C("trace")
+		tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": LastTransactionGlobal}).Count()
+		if session_err != nil {
+	 	    panic(session_err)
+	 	}
+ 	    if tr_exist == 0 && TraceGlobal != "" {
+		  	session_err = db_tr.Insert(&Trace{LastTransactionGlobal, TraceGlobal})
+ 	   		if session_err != nil {
+ 	           	panic(session_err)
+ 	   		}
+	 	}
+		// initialization
+		LastTransactionGlobal = contract.currentTx
+		TraceGlobal = ""
 	}
-    // Close it after finish running
-    defer func() { session.Close() }()
 
 	if in.intPool == nil {
 		in.intPool = poolOfIntPools.get()
@@ -194,7 +219,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 	}
 
 	// Record every opcode execution trace
-	tx_trace := ""
+	// tx_trace := ""
 
 	// The Interpreter main run loop (contextual). This loop runs until either an
 	// explicit STOP, RETURN or SELFDESTRUCT is executed, an error occurred during
@@ -273,40 +298,15 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 
-		// Write trace to the database
 		vandal_constant := ""
 		res, vandal_constant, err = operation.execute(&pc, in, contract, mem, stack)
-		// if contract.currentTx == "0x5d683ba4c3e27fb59a8f12cd414992cd8a5e1ec111210bceccd879f3d89aa2bc" {
-  		//      print("tx pc ", old_pc, " opstring ", op.String(), " gas ", cost, "\n")
-  		// }
+		if TraceGlobal == "" {
+			TraceGlobal = fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant)
+		} else {
+			TraceGlobal = fmt.Sprintf("%s|%d;%s;%s", TraceGlobal, old_pc, op.String(), vandal_constant)
+		}
 
-		tx_trace = fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant)
-		
-		db_tr := session.DB("geth").C("trace")
-		tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": contract.currentTx}).Count()
-	   	if session_err != nil {
-	        panic(session_err)
-	    }
-	    if tr_exist == 0 {
-    		session_err = db_tr.Insert(&Trace{contract.currentTx, tx_trace})
-	    	if session_err != nil {
-	            	panic(session_err)
-	    	}
-	    } else {
-	    	// Find
-	    	result := Trace{}
-			session_err = db_tr.Find(bson.M{"tx_hash": contract.currentTx}).One(&result)
-			if session_err != nil {
-				panic(session_err)
-			}
-	    		// Update
-			selector := bson.M{"tx_hash": contract.currentTx}
-			change := bson.M{"$set": bson.M{"tx_hash": contract.currentTx, "tx_trace": fmt.Sprintf("%s|%s", result.Tx_Trace, tx_trace)}}
-			session_err = db_tr.Update(selector, change)
-		   	if session_err != nil {
-		        panic(session_err)
-		    }
-	    }
+		// f.WriteString(fmt.Sprintf("%d;%s;%s|", old_pc, op.String(), vandal_constant))
 
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
