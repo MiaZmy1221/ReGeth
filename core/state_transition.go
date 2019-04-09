@@ -28,12 +28,11 @@ import (
 
 	// "gopkg.in/mgo.v2"
 	// "gopkg.in/mgo.v2/bson"
-	// "github.com/ethereum/go-ethereum/mongo"
+	"github.com/ethereum/go-ethereum/mongo"
 )
 
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
-	VMErr = ""
 )
 
 /*
@@ -218,7 +217,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	if vmerr != nil {
-		VMErr = vmerr.Error()
+		mongo.TxVMErr = vmerr.Error()
 
 		log.Debug("VM returned with error", "err", vmerr)
 		// The only possible consensus-error would be if there wasn't

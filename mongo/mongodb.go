@@ -5,6 +5,9 @@ import (
 )
 
 var SessionGlobal *mgo.Session
+var TraceGlobal string
+var CurrentTx string
+var TxVMErr string
 
 func InitMongoDb() {
 	var err error

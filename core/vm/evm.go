@@ -61,9 +61,8 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				}(evm.interpreter)
 				evm.interpreter = interpreter
 			}
-			contract.currentTx = evm.currentTx
-			// print("tx is run by EVM twice??? ", contract.currentTx)
-			return interpreter.Run(contract, input, readOnly)
+			return interpreter.RunWithFlag(contract, input, readOnly, evm.redundency)
+			// return interpreter.Run(contract, input, readOnly)
 		}
 	}
 	return nil, ErrNoCompatibleInterpreter
@@ -128,14 +127,7 @@ type EVM struct {
 	// applied in opCall*.
 	callGasTemp uint64
 
-	// store the transaction that is being executed
-	// same as currentTx in struct contract
-	currentTx string
-}
-
-// Return the current tx hash, which is used by the file state_transition
-func (evm *EVM) EVMCurrentTx() string {
-	return evm.currentTx
+	redundency bool
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -174,8 +166,7 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 	return evm
 }
 
-// NewEVMWithTx is for passing the transaction hash 
-func NewEVMWithTx(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmConfig Config, txHash string) *EVM {
+func NewEVMWithFlag(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmConfig Config, re bool) *EVM {
 	evm := &EVM{
 		Context:      ctx,
 		StateDB:      statedb,
@@ -183,11 +174,7 @@ func NewEVMWithTx(ctx Context, statedb StateDB, chainConfig *params.ChainConfig,
 		chainConfig:  chainConfig,
 		chainRules:   chainConfig.Rules(ctx.BlockNumber),
 		interpreters: make([]Interpreter, 0, 1),
-		currentTx: txHash,
-	}
-
-	if LastTransactionGlobal == "" {
-		LastTransactionGlobal = txHash
+		redundency:   re,
 	}
 
 	if chainConfig.IsEWASM(ctx.BlockNumber) {
@@ -213,7 +200,6 @@ func NewEVMWithTx(ctx Context, statedb StateDB, chainConfig *params.ChainConfig,
 
 	return evm
 }
-
 // Cancel cancels any running EVM operation. This may be called concurrently and
 // it's safe to be called multiple times.
 func (evm *EVM) Cancel() {

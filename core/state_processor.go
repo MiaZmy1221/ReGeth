@@ -32,7 +32,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
 	"encoding/json"
-
 )
 
 // Databse 1, store the basic transaction metadata
@@ -51,6 +50,12 @@ type Transac struct {
 	Tx_Index string
 	Tx_V string
 	Tx_Value string
+}
+
+// Database 2, store the basic transaction metadata
+type Trace struct {
+	Tx_Hash string
+	Tx_Trace string
 }
 
 // Database 3: receipt
@@ -131,13 +136,19 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
-	// print("transaction hash is ", tx.Hash().Hex())
+	// print("transaction hash is ", tx.Hash().Hex(), "\n")
+	mongo.CurrentTx = tx.Hash().Hex()
+	mongo.TraceGlobal = ""
+	mongo.TxVMErr = ""
+
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
 	}
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
+
 	toaddr := ""
 	if msg.To() == nil {
 		toaddr = "0x0"
@@ -165,11 +176,33 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 			panic(session_err)
 		}
 	}
+
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVMWithTx(context, statedb, config, cfg, tx.Hash().Hex())
+	// vmenv := vm.NewEVM(context, statedb, config, cfg)
+	vmenv := vm.NewEVMWithFlag(context, statedb, config, cfg, false)
+
 	// Apply the transaction to the current state (included in the env)
+	// Double clean the trace to prevent duplications
+	mongo.TraceGlobal = ""
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	// print("trace is ", mongo.TraceGlobal, "\n")
+
+	// insert trace into trace
+	// session := mongo.SessionGlobal.Clone()
+	// defer func() { session.Close() }()
+	db_tr := session.DB("geth").C("trace")
+	tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
+	if session_err != nil {
+ 	    panic(session_err)
+ 	}
+    if tr_exist == 0 && mongo.TraceGlobal != "" {
+  		session_err = db_tr.Insert(&Trace{tx.Hash().Hex(), mongo.TraceGlobal})
+   		if session_err != nil {
+           	panic(session_err)
+   		}
+ 	}
+
 	if err != nil {
 		return nil, 0, err
 	}
@@ -215,12 +248,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		session_err = db_re.Insert(&Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
 			fmt.Sprintf("%d", receipt.GasUsed), re_final_log,		
 			fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
-			receipt.TxHash.Hex(), VMErr})
+			receipt.TxHash.Hex(), mongo.TxVMErr})
 		if session_err != nil {
 	        panic(session_err)
 		}
 	}
-
-
+	// print("receipt status is ", receipt.Status, " failure reason is ", mongo.TxVMErr, "\n")
 	return receipt, gas, err
 }
