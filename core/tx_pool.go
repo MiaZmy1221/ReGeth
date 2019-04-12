@@ -33,6 +33,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/ethereum/go-ethereum/mongo"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -482,7 +485,73 @@ func (pool *TxPool) Stop() {
 	if pool.journal != nil {
 		pool.journal.close()
 	}
-	log.Info("Transaction pool stopped")
+	log.Info("tx_pool Transaction pool stopped")
+
+	log.Info("Writing unfinished arrays into mongodb")
+	// write all the current unimported transactions into db
+	// write the bash number of things into db
+	// Use the global session defined in other places
+	session := mongo.SessionGlobal.Clone()
+	defer func() { session.Close() }()
+	// Open the transaction collection
+	db_tx := session.DB("geth").C("transaction")
+	// Open the trace collection
+	db_tr := session.DB("geth").C("trace")
+	// Open the receupt collection
+	db_re := session.DB("geth").C("receipt")
+
+	// print()
+	// print("mongo.CurrentNum ", mongo.CurrentNum)
+	// print("mongo.BashNum ", mongo.BashNum)
+	// print()
+
+	for i := 0; i <= mongo.CurrentNum; i++ {
+		if i == mongo.CurrentNum && mongo.BashTxs[i].Tx_Hash == "" {
+			continue
+		}
+
+		// Write the transaction into db
+		// print("flushing tx hash is ", mongo.BashTxs[i].Tx_Hash, "\n")
+		tx_exist, session_err := db_tx.Find(bson.M{"tx_hash": mongo.BashTxs[i].Tx_Hash}).Count()
+		if session_err != nil {
+			panic(session_err)
+		}
+		if tx_exist == 0 {
+			session_err := db_tx.Insert(&mongo.BashTxs[i])
+			if session_err != nil {
+				panic(session_err)
+			}
+		}
+
+		// Write the trace into db
+		// Trace is different from other two collections
+		// It needs to filter out the empty trace
+		if mongo.BashTrs[i].Tx_Trace != "" {
+			tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": mongo.BashTrs[i].Tx_Hash}).Count()
+			if session_err != nil {
+		 	    panic(session_err)
+		 	}
+		    if tr_exist == 0 {
+		  		session_err = db_tr.Insert(&mongo.BashTrs[i])
+		   		if session_err != nil {
+		           	panic(session_err)
+		   		}
+		 	}
+		}
+
+		// Write the receipt into db
+		re_exist, session_err := db_re.Find(bson.M{"re_txhash": mongo.BashRes[i].Re_TxHash}).Count()
+		if session_err != nil {
+		    	panic(session_err)
+		}
+		if re_exist == 0 {
+			session_err = db_re.Insert(&mongo.BashRes[i])
+			if session_err != nil {
+		        panic(session_err)
+			}
+		}
+		
+	}
 }
 
 // SubscribeNewTxsEvent registers a subscription of NewTxsEvent and

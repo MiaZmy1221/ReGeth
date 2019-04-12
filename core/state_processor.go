@@ -34,47 +34,6 @@ import (
 	"encoding/json"
 )
 
-// Databse 1, store the basic transaction metadata
-type Transac struct {
-	Tx_BlockHash string
-	Tx_BlockNum string 
-	Tx_FromAddr string
-	Tx_Gas string
-	Tx_GasPrice string
-	Tx_Hash string 
-	Tx_Input string 
-	Tx_Nonce string
-	Tx_R string
- 	Tx_S string
-	Tx_ToAddr string
-	Tx_Index string
-	Tx_V string
-	Tx_Value string
-}
-
-// Database 2, store the basic transaction metadata
-type Trace struct {
-	Tx_Hash string
-	Tx_Trace string
-}
-
-// Database 3: receipt
-type Rece struct{
-	// BlockHash
-	// BlockNumber
-	Re_contractAddress string
-	Re_CumulativeGasUsed string
-	// from
-	Re_GasUsed string
-	Re_Logs string
-	Re_LogsBloom string
-	Re_Status  string
-	// to
-	Re_TxHash string
-	// TransactionIndex
-	// Store the pre-execution error
-	Re_FailReason string
-}
 
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -157,25 +116,12 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		toaddr = tempt.String()
 	}
 
-	// Use the global session defined in other places
-	session  := mongo.SessionGlobal.Clone()
-	defer func() { session.Close() }()
-
-	db_tx := session.DB("geth").C("transaction")
-	tx_exist, session_err := db_tx.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
-	if session_err != nil {
-		panic(session_err)
-	}
-	if tx_exist == 0 {
-		session_err := db_tx.Insert(&Transac{statedb.BlockHash().Hex(), header.Number.String(), 
+	// write transaction to the array
+	mongo.BashTxs[mongo.CurrentNum] = mongo.Transac{statedb.BlockHash().Hex(), header.Number.String(), 
 					msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), 
 					tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("0x%x", tx.Nonce()), 
 					fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()), toaddr, 
-					fmt.Sprintf("0x%x", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()})
-		if session_err != nil {
-			panic(session_err)
-		}
-	}
+					fmt.Sprintf("0x%x", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()}
 
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
@@ -186,22 +132,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Double clean the trace to prevent duplications
 	mongo.TraceGlobal = ""
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
-	// print("trace is ", mongo.TraceGlobal, "\n")
 
-	// insert trace into trace
-	// session := mongo.SessionGlobal.Clone()
-	// defer func() { session.Close() }()
-	db_tr := session.DB("geth").C("trace")
-	tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
-	if session_err != nil {
- 	    panic(session_err)
- 	}
-    if tr_exist == 0 && mongo.TraceGlobal != "" {
-  		session_err = db_tr.Insert(&Trace{tx.Hash().Hex(), mongo.TraceGlobal})
-   		if session_err != nil {
-           	panic(session_err)
-   		}
- 	}
+	// write trace to the array
+	mongo.BashTrs[mongo.CurrentNum] = mongo.Trace{tx.Hash().Hex(), mongo.TraceGlobal}
 
 	if err != nil {
 		return nil, 0, err
@@ -232,27 +165,81 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	db_re := session.DB("geth").C("receipt")
-	re_exist, session_err := db_re.Find(bson.M{"re_txhash": receipt.TxHash.Hex()}).Count()
-	if session_err != nil {
-        	panic(session_err)
-	}
-
+	// write receipt to the array
 	re_final_log := ""
-    for i := 0; i < len(receipt.Logs); i++ {
-            res, _ := json.Marshal(receipt.Logs[i])
-            re_final_log = fmt.Sprintf("%s\n%s", re_final_log, string(res))
-    }
-
-    if re_exist == 0 {
-		session_err = db_re.Insert(&Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
-			fmt.Sprintf("%d", receipt.GasUsed), re_final_log,		
-			fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
-			receipt.TxHash.Hex(), mongo.TxVMErr})
-		if session_err != nil {
-	        panic(session_err)
-		}
+	for i := 0; i < len(receipt.Logs); i++ {
+	        res, _ := json.Marshal(receipt.Logs[i])
+	        re_final_log = fmt.Sprintf("%s\n%s", re_final_log, string(res))
 	}
-	// print("receipt status is ", receipt.Status, " failure reason is ", mongo.TxVMErr, "\n")
+	mongo.BashRes[mongo.CurrentNum] = mongo.Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
+			fmt.Sprintf("%d", receipt.GasUsed), re_final_log, fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
+			receipt.TxHash.Hex(), mongo.TxVMErr}
+
+	// bash write bash number of transactions, receipts and traces into the db
+	if mongo.CurrentNum != mongo.BashNum - 1 {
+		mongo.CurrentNum = mongo.CurrentNum + 1
+	} else {
+		// write the bash number of things into db
+		// Use the global session defined in other places
+		session  := mongo.SessionGlobal.Clone()
+		defer func() { session.Close() }()
+		// Open the transaction collection
+		db_tx := session.DB("geth").C("transaction")
+		// Open the trace collection
+		db_tr := session.DB("geth").C("trace")
+		// Open the receupt collection
+		db_re := session.DB("geth").C("receipt")
+
+		for i := 0; i < mongo.BashNum; i++ {
+			// Write the transaction into db
+			tx_exist, session_err := db_tx.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
+			if session_err != nil {
+				panic(session_err)
+			}
+			if tx_exist == 0 {
+				session_err := db_tx.Insert(&mongo.BashTxs[i])
+				if session_err != nil {
+					panic(session_err)
+				}
+			}
+
+			// Write the trace into db
+			// Trace is different from other two collections
+			// It needs to filter out the empty trace
+			if mongo.BashTrs[i].Tx_Trace != "" {
+				tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
+				if session_err != nil {
+			 	    panic(session_err)
+			 	}
+			    if tr_exist == 0 {
+			  		session_err = db_tr.Insert(&mongo.BashTrs[i])
+			   		if session_err != nil {
+			           	panic(session_err)
+			   		}
+			 	}
+			}
+
+			// Write the receipt into db
+			re_exist, session_err := db_re.Find(bson.M{"re_txhash": tx.Hash().Hex()}).Count()
+			if session_err != nil {
+			    	panic(session_err)
+			}
+			if re_exist == 0 {
+				session_err = db_re.Insert(&mongo.BashRes[i])
+				if session_err != nil {
+			        panic(session_err)
+				}
+			}
+			
+		}
+
+		mongo.CurrentNum = 0
+		mongo.BashTxs = make([]mongo.Transac, mongo.BashNum)
+		mongo.BashTrs = make([]mongo.Trace, mongo.BashNum)
+		mongo.BashRes = make([]mongo.Rece, mongo.BashNum)
+	}
+
+	// print("state process mongo current num is ", mongo.CurrentNum, "\n")
+
 	return receipt, gas, err
 }
