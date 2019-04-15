@@ -179,30 +179,18 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		// write the bash number of things into db
-		// Use the global session defined in other places
-		session  := mongo.SessionGlobal.Clone()
-		defer func() { session.Close() }()
-		// Open the transaction collection
-		db_tx := session.DB("geth").C("transaction")
-		// Open the trace collection
-		db_tr := session.DB("geth").C("trace")
-		// Open the receupt collection
-		db_re := session.DB("geth").C("receipt")
-
 		for i := 0; i < mongo.BashNum; i++ {
 			// Write the transaction into db
-			session_err := db_tx.Insert(&mongo.BashTxs[i])
+			session_err := mongo.DbTx.Insert(&mongo.BashTxs[i])
 			if session_err != nil {
 				panic(session_err)
 			}
 			
-
 			// Write the trace into db
 			// Trace is different from other two collections
 			// It needs to filter out the empty trace
 			if mongo.BashTrs[i].Tx_Trace != "" {
-				session_err := db_tr.Insert(&mongo.BashTrs[i])
+				session_err := mongo.DbTr.Insert(&mongo.BashTrs[i])
 			   	if session_err != nil {
 			           	panic(session_err)
 			   	}
@@ -210,11 +198,10 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 			}
 
 			// Write the receipt into db
-			session_err = db_re.Insert(&mongo.BashRes[i])
+			session_err = mongo.DbRe.Insert(&mongo.BashRes[i])
 			if session_err != nil {
 			        panic(session_err)
 			}
-			
 		}
 
 		mongo.CurrentNum = 0
