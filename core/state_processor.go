@@ -29,7 +29,7 @@ import (
 	// Add
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"gopkg.in/mgo.v2/bson"
+	// "gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
 	"encoding/json"
 )
@@ -192,43 +192,27 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 		for i := 0; i < mongo.BashNum; i++ {
 			// Write the transaction into db
-			tx_exist, session_err := db_tx.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
+			session_err := db_tx.Insert(&mongo.BashTxs[i])
 			if session_err != nil {
 				panic(session_err)
 			}
-			if tx_exist == 0 {
-				session_err := db_tx.Insert(&mongo.BashTxs[i])
-				if session_err != nil {
-					panic(session_err)
-				}
-			}
+			
 
 			// Write the trace into db
 			// Trace is different from other two collections
 			// It needs to filter out the empty trace
 			if mongo.BashTrs[i].Tx_Trace != "" {
-				tr_exist, session_err := db_tr.Find(bson.M{"tx_hash": tx.Hash().Hex()}).Count()
-				if session_err != nil {
-			 	    panic(session_err)
-			 	}
-			    if tr_exist == 0 {
-			  		session_err = db_tr.Insert(&mongo.BashTrs[i])
-			   		if session_err != nil {
+				session_err := db_tr.Insert(&mongo.BashTrs[i])
+			   	if session_err != nil {
 			           	panic(session_err)
-			   		}
-			 	}
+			   	}
+			 	
 			}
 
 			// Write the receipt into db
-			re_exist, session_err := db_re.Find(bson.M{"re_txhash": tx.Hash().Hex()}).Count()
+			session_err = db_re.Insert(&mongo.BashRes[i])
 			if session_err != nil {
-			    	panic(session_err)
-			}
-			if re_exist == 0 {
-				session_err = db_re.Insert(&mongo.BashRes[i])
-				if session_err != nil {
 			        panic(session_err)
-				}
 			}
 			
 		}
