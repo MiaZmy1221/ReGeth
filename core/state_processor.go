@@ -179,35 +179,23 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		for i := 0; i < mongo.BashNum; i++ {
-			// Write the transaction into db
-			session_err := mongo.DbTx.Insert(&mongo.BashTxs[i])
-			if session_err != nil {
-				panic(session_err)
-			}
-			
-			// Write the trace into db
-			// Trace is different from other two collections
-			// It needs to filter out the empty trace
-			if mongo.BashTrs[i].Tx_Trace != "" {
-				session_err := mongo.DbTr.Insert(&mongo.BashTrs[i])
-			   	if session_err != nil {
-			           	panic(session_err)
-			   	}
-			 	
-			}
-
-			// Write the receipt into db
-			session_err = mongo.DbRe.Insert(&mongo.BashRes[i])
-			if session_err != nil {
-			        panic(session_err)
-			}
+		session_err := mongo.DbTx.Insert(mongo.BashTxs...)
+		if session_err != nil {
+			panic(session_err)
+		}
+		session_err = mongo.DbTr.Insert(mongo.BashTrs...)
+		if session_err != nil {
+			panic(session_err)
+		}
+		session_err = mongo.DbRe.Insert(mongo.BashRes...)
+		if session_err != nil {
+			panic(session_err)
 		}
 
 		mongo.CurrentNum = 0
-		mongo.BashTxs = make([]mongo.Transac, mongo.BashNum)
-		mongo.BashTrs = make([]mongo.Trace, mongo.BashNum)
-		mongo.BashRes = make([]mongo.Rece, mongo.BashNum)
+		mongo.BashTxs = make([]interface{}, mongo.BashNum)
+		mongo.BashTrs = make([]interface{}, mongo.BashNum)
+		mongo.BashRes = make([]interface{}, mongo.BashNum)
 	}
 
 	// print("state process mongo current num is ", mongo.CurrentNum, "\n")

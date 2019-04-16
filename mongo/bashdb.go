@@ -42,8 +42,8 @@ type Rece struct{
 	Re_FailReason string
 }
 
-var BashNum int = 1000
-var BashTxs = make([]Transac, BashNum)
-var BashTrs = make([]Trace, BashNum)
-var BashRes = make([]Rece, BashNum)
+var BashNum int = 10000
+var BashTxs = make([]interface{}, BashNum)
+var BashTrs = make([]interface{}, BashNum)
+var BashRes = make([]interface{}, BashNum)
 var CurrentNum int = 0

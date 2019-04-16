@@ -488,37 +488,18 @@ func (pool *TxPool) Stop() {
 	log.Info("tx_pool Transaction pool stopped")
 
 	log.Info("Writing unfinished arrays into mongodb")
-	
-	// write all the current unimported transactions into db
-	// write the bash number of things into db
-	for i := 0; i <= mongo.CurrentNum; i++ {
-		if i == mongo.CurrentNum && mongo.BashTxs[i].Tx_Hash == "" {
-			continue
-		}
-
-		// Write the transaction into db
-		session_err := mongo.DbTx.Insert(&mongo.BashTxs[i])
-		if session_err != nil {
-			panic(session_err)
-		}
-		
-		// Write the trace into db
-		// Trace is different from other two collections
-		// It needs to filter out the empty trace
-		if mongo.BashTrs[i].Tx_Trace != "" {
-			session_err := mongo.DbTr.Insert(&mongo.BashTrs[i])
-		   	if session_err != nil {
-		           	panic(session_err)
-		   	}
-		}
-
-		// Write the receipt into db
-		session_err = mongo.DbRe.Insert(&mongo.BashRes[i])
-		if session_err != nil {
-		        panic(session_err)
-		}		
+	session_err := mongo.DbTx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
+	if session_err != nil {
+		panic(session_err)
 	}
-	// Close the db
+	session_err = mongo.DbTr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
+	if session_err != nil {
+		panic(session_err)
+	}
+	session_err = mongo.DbRe.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
+	if session_err != nil {
+		panic(session_err)
+	}
 	mongo.SessionGlobal.Close()
 }
 
