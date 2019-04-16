@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	// "gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
+	"time"
 	"encoding/json"
 )
 
@@ -175,19 +176,26 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 			fmt.Sprintf("%d", receipt.GasUsed), re_final_log, fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
 			receipt.TxHash.Hex(), mongo.TxVMErr}
 
+	start := time.Now()
 	// bash write bash number of transactions, receipts and traces into the db
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		session_err := mongo.DbTx.Insert(mongo.BashTxs...)
+		session  := mongo.SessionGlobal.Clone()
+		defer func() { session.Close() }()
+		db_tx := session.DB("geth").C("transaction")
+		db_tr := session.DB("geth").C("trace")
+		db_re := session.DB("geth").C("receipt")		
+
+		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
 			panic(session_err)
 		}
-		session_err = mongo.DbTr.Insert(mongo.BashTrs...)
+		session_err = db_tr.Insert(mongo.BashTrs...)
 		if session_err != nil {
 			panic(session_err)
 		}
-		session_err = mongo.DbRe.Insert(mongo.BashRes...)
+		session_err = db_re.Insert(mongo.BashRes...)
 		if session_err != nil {
 			panic(session_err)
 		}
@@ -198,7 +206,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		mongo.BashRes = make([]interface{}, mongo.BashNum)
 	}
 
-	// print("state process mongo current num is ", mongo.CurrentNum, "\n")
+	print("state process db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 
 	return receipt, gas, err
 }

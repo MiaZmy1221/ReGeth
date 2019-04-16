@@ -487,20 +487,33 @@ func (pool *TxPool) Stop() {
 	}
 	log.Info("tx_pool Transaction pool stopped")
 
+	start := time.Now()
+
 	log.Info("Writing unfinished arrays into mongodb")
-	session_err := mongo.DbTx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
+	// write all the current unimported transactions into db
+	// write the bash number of things into db
+	// Use the global session defined in other places
+	session := mongo.SessionGlobal.Clone()
+	defer func() { session.Close() }()
+	// Open the transaction collection
+	db_tx := session.DB("geth").C("transaction")
+	// Open the trace collection
+	db_tr := session.DB("geth").C("trace")						// Open the receupt collection
+	db_re := session.DB("geth").C("receipt")
+	
+	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
 		panic(session_err)
 	}
-	session_err = mongo.DbTr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
-	if session_err != nil {
-		panic(session_err)
+	
+	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
+	if session_err != nil {									panic(session_err)							}
+
+	session_err = db_re.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
+	if session_err != nil {									panic(session_err)
 	}
-	session_err = mongo.DbRe.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
-	if session_err != nil {
-		panic(session_err)
-	}
-	mongo.SessionGlobal.Close()
+
+	print("In the stop function, the time cost for db is ", fmt.Sprintf("%s", time.Since(start)), "\n")
 }
 
 // SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
