@@ -91,6 +91,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	return receipts, allLogs, *usedGas, nil
 }
 
+
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
@@ -190,17 +191,40 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
 			// panic(session_err)
-			mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
+			// WriteTxsInLoop(mongo.BashTxs)
+			for i := 0; i < mongo.BashNum; i++ {
+				 // Write the transaction into db
+				 session_err = db_tx.Insert(&mongo.BashTxs[i]) 
+				 if session_err != nil {
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s\n", session_err))
+			         }
+			 }
+			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 		session_err = db_tr.Insert(mongo.BashTrs...)
 		if session_err != nil {
 			// panic(session_err)
-			mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
+			// WriteTrsLoop(mongo.BashTrs)
+			for i := 0; i < mongo.BashNum; i++ {
+				// Write the trace into db
+				session_err = db_tr.Insert(&mongo.BashTrs[i])
+				if session_err != nil {
+	                                   mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s\n", session_err))
+				 }																			}
+			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 		session_err = db_re.Insert(mongo.BashRes...)
 		if session_err != nil {
 			// panic(session_err)
-			mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
+			// WriteResInLoop(mongo.BashRes)
+			for i := 0; i < mongo.BashNum; i++ {
+				// Write the receipt into db
+				session_err = db_re.Insert(&mongo.BashRes[i])
+				if session_err != nil {
+					 mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt %s\n", session_err))
+				}
+			}
+			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 
 		mongo.CurrentNum = 0
