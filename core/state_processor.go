@@ -209,7 +209,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 				// Write the trace into db
 				session_err = db_tr.Insert(&mongo.BashTrs[i])
 				if session_err != nil {
-	                                   mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s\n", session_err))
+	                                   mongo.ErrorFile.WriteString(fmt.Sprintf("Trace %s\n", session_err))
 				 }																			}
 			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
