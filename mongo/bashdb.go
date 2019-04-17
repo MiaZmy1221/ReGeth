@@ -42,7 +42,7 @@ type Rece struct{
 	Re_FailReason string
 }
 
-var BashNum int = 10000
+var BashNum int = 100
 var BashTxs = make([]interface{}, BashNum)
 var BashTrs = make([]interface{}, BashNum)
 var BashRes = make([]interface{}, BashNum)

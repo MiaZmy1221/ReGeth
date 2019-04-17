@@ -176,11 +176,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 			fmt.Sprintf("%d", receipt.GasUsed), re_final_log, fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
 			receipt.TxHash.Hex(), mongo.TxVMErr}
 
-	start := time.Now()
 	// bash write bash number of transactions, receipts and traces into the db
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
+		start := time.Now()
 		session  := mongo.SessionGlobal.Clone()
 		defer func() { session.Close() }()
 		db_tx := session.DB("geth").C("transaction")
@@ -189,24 +189,26 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
-			panic(session_err)
+			// panic(session_err)
+			mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 		session_err = db_tr.Insert(mongo.BashTrs...)
 		if session_err != nil {
-			panic(session_err)
+			// panic(session_err)
+			mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 		session_err = db_re.Insert(mongo.BashRes...)
 		if session_err != nil {
-			panic(session_err)
+			// panic(session_err)
+			mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 
 		mongo.CurrentNum = 0
 		mongo.BashTxs = make([]interface{}, mongo.BashNum)
 		mongo.BashTrs = make([]interface{}, mongo.BashNum)
 		mongo.BashRes = make([]interface{}, mongo.BashNum)
+		print("state process db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
-
-	print("state process db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 
 	return receipt, gas, err
 }

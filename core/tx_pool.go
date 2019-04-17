@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
 
+	// "os"
 	"github.com/ethereum/go-ethereum/mongo"
 	// "gopkg.in/mgo.v2/bson"
 )
@@ -503,15 +504,22 @@ func (pool *TxPool) Stop() {
 	
 	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		panic(session_err)
+		// panic(session_err)
+		mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 	}
 	
 	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
-	if session_err != nil {									panic(session_err)							}
+	if session_err != nil {						
+		// panic(session_err)
+		mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
+	}
 
 	session_err = db_re.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
-	if session_err != nil {									panic(session_err)
+	if session_err != nil {						
+		// panic(session_err)
+		mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 	}
+	mongo.ErrorFile.Close()
 
 	print("In the stop function, the time cost for db is ", fmt.Sprintf("%s", time.Since(start)), "\n")
 }
