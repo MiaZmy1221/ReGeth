@@ -505,49 +505,59 @@ func (pool *TxPool) Stop() {
 	
 	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session.Refresh()
-		// panic(session_err)
+		session = mongo.SessionGlobal.Clone()
+		db_tx = session.DB("geth").C("transaction")
+
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_tx.Insert(&mongo.BashTxs[i])
 			if session_err != nil {
 				json_tx, json_err := json.Marshal(&mongo.BashTxs[i])
 				if json_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s %s\n", mongo.BashTxs[i].(mongo.Transac).Tx_Hash, json_err))
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction;%s;%s\n", mongo.BashTxs[i].(mongo.Transac).Tx_Hash, json_err))
 				}
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s %s\n", json_tx, session_err))
+				mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction|%s|%s\n", json_tx, session_err))
 			}
 		}
+
+		session.Close()
 	}
 
 	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session.Refresh()
+		session = mongo.SessionGlobal.Clone()
+		db_tr = session.DB("geth").C("trace")
+
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_tr.Insert(&mongo.BashTrs[i])
 			if session_err != nil {
 				json_tr, json_err := json.Marshal(&mongo.BashTrs[i])
 				if json_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Trace %s %s\n", mongo.BashTrs[i].(mongo.Trace).Tx_Hash, json_err))
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Trace;%s;%s\n", mongo.BashTrs[i].(mongo.Trace).Tx_Hash, json_err))
 				}
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Trace %s %s\n", json_tr, session_err))
+				mongo.ErrorFile.WriteString(fmt.Sprintf("Trace|%s|%s\n", json_tr, session_err))
 			}
 		}
+
+		session.Close()
 	}
 
 	session_err = db_re.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session.Refresh()
+		session = mongo.SessionGlobal.Clone()
+		db_re = session.DB("geth").C("receipt")
+
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_re.Insert(&mongo.BashRes[i])
 			if session_err != nil {
 				json_re, json_err := json.Marshal(&mongo.BashRes[i])
 				if json_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt %s %s\n", mongo.BashRes[i].(mongo.Rece).Re_TxHash, json_err))
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt;%s;%s\n", mongo.BashRes[i].(mongo.Rece).Re_TxHash, json_err))
 				}
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt %s %s\n", json_re, session_err))
+				mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt|%s|%s\n", json_re, session_err))
 			}
 		}
-		//mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
+		
+		session.Close()
 	}
 	mongo.ErrorFile.Close()
 
