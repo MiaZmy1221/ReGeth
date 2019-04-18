@@ -1,10 +1,12 @@
 package mongo
 
 import (
+	"time"
 	"os"
 	"gopkg.in/mgo.v2"
 )
 
+var Start time.Time
 var SessionGlobal *mgo.Session
 var TraceGlobal string
 var CurrentTx string

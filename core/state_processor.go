@@ -31,7 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	// "gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
-	"time"
+	// "time"
 	"encoding/json"
 )
 
@@ -97,6 +97,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+	// if mongo.CurrentNum == 0 {
+	// 	mongo.Start = time.Now()
+	// }
+	
 	// print("transaction hash is ", tx.Hash().Hex(), "\n")
 	mongo.CurrentTx = tx.Hash().Hex()
 	mongo.TraceGlobal = ""
@@ -181,7 +185,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		start := time.Now()
+		// start := time.Now()
 		session  := mongo.SessionGlobal.Clone()
 		defer func() { session.Close() }()
 		db_tx := session.DB("geth").C("transaction")
@@ -190,38 +194,47 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
-			// panic(session_err)
-			// WriteTxsInLoop(mongo.BashTxs)
+			session.Refresh()
 			for i := 0; i < mongo.BashNum; i++ {
 				 // Write the transaction into db
 				 session_err = db_tx.Insert(&mongo.BashTxs[i]) 
 				 if session_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s\n", session_err))
+					json_tx, json_err := json.Marshal(&mongo.BashTxs[i])
+					if json_err != nil {
+						mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s %s\n", mongo.BashTxs[i].(mongo.Transac).Tx_Hash, json_err))
+					}
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction %s %s\n", json_tx, session_err))
 			         }
 			 }
 			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 		session_err = db_tr.Insert(mongo.BashTrs...)
 		if session_err != nil {
-			// panic(session_err)
-			// WriteTrsLoop(mongo.BashTrs)
+			session.Refresh()
 			for i := 0; i < mongo.BashNum; i++ {
 				// Write the trace into db
 				session_err = db_tr.Insert(&mongo.BashTrs[i])
 				if session_err != nil {
-	                                   mongo.ErrorFile.WriteString(fmt.Sprintf("Trace %s\n", session_err))
+					json_tr, json_err := json.Marshal(&mongo.BashTrs[i]) 
+					if json_err != nil {
+						mongo.ErrorFile.WriteString(fmt.Sprintf("Trace %s %s\n", mongo.BashTrs[i].(mongo.Trace).Tx_Hash, json_err))
+					}
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Trace %s %s \n", json_tr, session_err))
 				 }																			}
 			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
 		}
 		session_err = db_re.Insert(mongo.BashRes...)
 		if session_err != nil {
-			// panic(session_err)
-			// WriteResInLoop(mongo.BashRes)
+			session.Refresh()
 			for i := 0; i < mongo.BashNum; i++ {
 				// Write the receipt into db
 				session_err = db_re.Insert(&mongo.BashRes[i])
 				if session_err != nil {
-					 mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt %s\n", session_err))
+					json_re, json_err := json.Marshal(&mongo.BashRes[i])
+					if json_err != nil {
+						 mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt %s %s\n", mongo.BashRes[i].(mongo.Rece).Re_TxHash, json_err))
+					}
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt %s %s \n", json_re, session_err))
 				}
 			}
 			// mongo.ErrorFile.WriteString(fmt.Sprintf("%s\n", session_err))
@@ -231,7 +244,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		mongo.BashTxs = make([]interface{}, mongo.BashNum)
 		mongo.BashTrs = make([]interface{}, mongo.BashNum)
 		mongo.BashRes = make([]interface{}, mongo.BashNum)
-		print("state process db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
+		
+		// print("1000 total applytransaction time is ", fmt.Sprintf("%s", time.Since(mongo.Start)), "\n")
+		// print("1000 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
 
 	return receipt, gas, err
