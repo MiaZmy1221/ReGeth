@@ -31,7 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	// "gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
-	"time"
+	// "time"
 	"encoding/json"
 )
 
@@ -97,9 +97,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
-	 if mongo.CurrentNum == 0 {
-	 	mongo.Start = time.Now()
-	 }
+	// if mongo.CurrentNum == 0 {
+	// 	mongo.Start = time.Now()
+	// }
 	
 	// print("transaction hash is ", tx.Hash().Hex(), "\n")
 	mongo.CurrentTx = tx.Hash().Hex()
@@ -185,8 +185,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		start := time.Now()
-		
+		// start := time.Now()
 		session  := mongo.SessionGlobal.Clone()
 		defer func() { session.Close() }()
 		db_tx := session.DB("geth").C("transaction")
@@ -249,8 +248,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		mongo.BashTrs = make([]interface{}, mongo.BashNum)
 		mongo.BashRes = make([]interface{}, mongo.BashNum)
 		
-		print("50 total applytransaction time is ", fmt.Sprintf("%s", time.Since(mongo.Start)), "\n")
-		print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
+		// print("50 total applytransaction time is ", fmt.Sprintf("%s", time.Since(mongo.Start)), "\n")
+		// print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
 
 	return receipt, gas, err

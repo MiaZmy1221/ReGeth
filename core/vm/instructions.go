@@ -654,7 +654,7 @@ func opMload(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 	stack.push(val)
 
 	interpreter.intPool.put(offset)
-	return nil, "", nil
+	return nil, val.String(), nil
 }
 
 func opMstore(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, string, error) {
@@ -966,7 +966,9 @@ func opReturn(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 
 	interpreter.intPool.put(offset, size)
 
-	return ret, "", nil
+	returnreturn := new(big.Int)
+        returnreturn.SetBytes(ret)
+	return ret, returnreturn.String(), nil
 }
 
 func opRevert(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, string, error) {
@@ -974,8 +976,10 @@ func opRevert(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	ret := memory.GetPtr(offset.Int64(), size.Int64())
 
 	interpreter.intPool.put(offset, size)
-
-	return ret, "", nil
+	
+	returnrevert := new(big.Int)
+        returnrevert.SetBytes(ret)
+	return ret, returnrevert.String(), nil
 }
 
 func opStop(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, string, error) {
@@ -991,7 +995,7 @@ func opSuicide(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memo
 	interpreter.evm.StateDB.AddBalance(common.BigToAddress(addr), balance)
 
 	interpreter.evm.StateDB.Suicide(contract.Address())
-	return nil, "", nil
+	return nil, contract.Address().String(), nil
 }
 
 // following functions are used by the instruction jump  table
