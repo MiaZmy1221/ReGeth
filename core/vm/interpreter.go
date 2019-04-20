@@ -422,6 +422,10 @@ func (in *EVMInterpreter) RunWithFlag(contract *Contract, input []byte, readOnly
 
 		vandal_constant := ""
 		res, vandal_constant, err = operation.execute(&pc, in, contract, mem, stack)
+		// print(old_pc, ";", op.String(), ";", vandal_constant, "\n")
+		// print("after executing, stack len is ", stack.len(), "\n")
+		// stack.Print()
+
 		// To avoid prefetch
 		if redundency == false {
 			if mongo.TraceGlobal == "" {
