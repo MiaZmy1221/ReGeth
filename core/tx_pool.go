@@ -492,22 +492,11 @@ func (pool *TxPool) Stop() {
 	start := time.Now()
 
 	log.Info("Writing unfinished arrays into mongodb")
-	// write all the current unimported transactions into db
-	// write the bash number of things into db
-	// Use the global session defined in other places
-	session := mongo.SessionGlobal.Clone()
-	defer func() { session.Close() }()
-	// Open the transaction collection
+	session := mongo.SessionGlobal.Copy()
 	db_tx := session.DB("geth").C("transaction")
-	// Open the trace collection
-	db_tr := session.DB("geth").C("trace")						// Open the receupt collection
-	db_re := session.DB("geth").C("receipt")
-	
 	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session = mongo.SessionGlobal.Clone()
-		db_tx = session.DB("geth").C("transaction")
-
+		session.Refresh()
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_tx.Insert(&mongo.BashTxs[i])
 			if session_err != nil {
@@ -518,15 +507,12 @@ func (pool *TxPool) Stop() {
 				mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction|%s|%s\n", json_tx, session_err))
 			}
 		}
-
-		session.Close()
 	}
 
+	db_tr := session.DB("geth").C("trace")
 	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session = mongo.SessionGlobal.Clone()
-		db_tr = session.DB("geth").C("trace")
-
+		session.Refresh()
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_tr.Insert(&mongo.BashTrs[i])
 			if session_err != nil {
@@ -537,15 +523,12 @@ func (pool *TxPool) Stop() {
 				mongo.ErrorFile.WriteString(fmt.Sprintf("Trace|%s|%s\n", json_tr, session_err))
 			}
 		}
-
-		session.Close()
 	}
 
+	db_re := session.DB("geth").C("receipt")
 	session_err = db_re.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session = mongo.SessionGlobal.Clone()
-		db_re = session.DB("geth").C("receipt")
-
+		session.Refresh()
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_re.Insert(&mongo.BashRes[i])
 			if session_err != nil {
@@ -556,9 +539,9 @@ func (pool *TxPool) Stop() {
 				mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt|%s|%s\n", json_re, session_err))
 			}
 		}
-		
-		session.Close()
 	}
+
+	mongo.SessionGlobal.Close()
 	mongo.ErrorFile.Close()
 
 	print("In the stop function, the time cost for db is ", fmt.Sprintf("%s", time.Since(start)), "\n")

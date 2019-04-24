@@ -186,17 +186,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
 		// start := time.Now()
-		session  := mongo.SessionGlobal.Clone()
-		defer func() { session.Close() }()
+		session  := mongo.SessionGlobal.Copy()
 		db_tx := session.DB("geth").C("transaction")
-		db_tr := session.DB("geth").C("trace")
-		db_re := session.DB("geth").C("receipt")		
-
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
-			session = mongo.SessionGlobal.Clone()
-			db_tx = session.DB("geth").C("transaction")
-
+			session.Refresh()
 			for i := 0; i < mongo.BashNum; i++ {
 				 session_err = db_tx.Insert(&mongo.BashTxs[i]) 
 				 if session_err != nil {
@@ -205,15 +199,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 						mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction;%s;%s\n", mongo.BashTxs[i].(mongo.Transac).Tx_Hash, json_err))
 					}
 					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction|%s|%s\n", json_tx, session_err))
-			         }
+			      }
 			 }
-			 session.Close()
 		}
+
+		db_tr := session.DB("geth").C("trace")
 		session_err = db_tr.Insert(mongo.BashTrs...)
 		if session_err != nil {
-			session = mongo.SessionGlobal.Clone()
-			db_tr = session.DB("geth").C("trace")
-
+			session.Refresh()
 			for i := 0; i < mongo.BashNum; i++ {
 				session_err = db_tr.Insert(&mongo.BashTrs[i])
 				if session_err != nil {
@@ -222,14 +215,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 						mongo.ErrorFile.WriteString(fmt.Sprintf("Trace;%s;%s\n", mongo.BashTrs[i].(mongo.Trace).Tx_Hash, json_err))
 					}
 					mongo.ErrorFile.WriteString(fmt.Sprintf("Trace|%s|%s \n", json_tr, session_err))
-				 }																			}
-			session.Close()
+				 }
+			}	
 		}
+
+		db_re := session.DB("geth").C("receipt")
 		session_err = db_re.Insert(mongo.BashRes...)
 		if session_err != nil {
-			session = mongo.SessionGlobal.Clone()
-			db_re := session.DB("geth").C("receipt")
-
+			session.Refresh()
 			for i := 0; i < mongo.BashNum; i++ {
 				session_err = db_re.Insert(&mongo.BashRes[i])
 				if session_err != nil {
@@ -240,9 +233,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 					mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt|%s|%s\n", json_re, session_err))
 				}
 			}
-			session.Close()
 		}
 
+		session.Close()
 		mongo.CurrentNum = 0
 		mongo.BashTxs = make([]interface{}, mongo.BashNum)
 		mongo.BashTrs = make([]interface{}, mongo.BashNum)
