@@ -492,11 +492,10 @@ func (pool *TxPool) Stop() {
 	start := time.Now()
 
 	log.Info("Writing unfinished arrays into mongodb")
-	session := mongo.SessionGlobal.Copy()
-	db_tx := session.DB("geth").C("transaction")
+	db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
 	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session.Refresh()
+		mongo.SessionGlobal.Refresh()
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_tx.Insert(&mongo.BashTxs[i])
 			if session_err != nil {
@@ -509,10 +508,10 @@ func (pool *TxPool) Stop() {
 		}
 	}
 
-	db_tr := session.DB("geth").C("trace")
+	db_tr := mongo.SessionGlobal.DB("geth").C("trace")
 	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session.Refresh()
+		mongo.SessionGlobal.Refresh()
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_tr.Insert(&mongo.BashTrs[i])
 			if session_err != nil {
@@ -525,10 +524,10 @@ func (pool *TxPool) Stop() {
 		}
 	}
 
-	db_re := session.DB("geth").C("receipt")
+	db_re := mongo.SessionGlobal.DB("geth").C("receipt")
 	session_err = db_re.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
-		session.Refresh()
+		mongo.SessionGlobal.Refresh()
 		for i := 0; i < mongo.CurrentNum+1; i++ {
 			session_err = db_re.Insert(&mongo.BashRes[i])
 			if session_err != nil {
