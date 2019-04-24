@@ -185,7 +185,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		// start := time.Now()
+		start := time.Now()
 		db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
@@ -233,14 +233,13 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 				}
 			}
 		}
-		
+
 		mongo.CurrentNum = 0
 		mongo.BashTxs = make([]interface{}, mongo.BashNum)
 		mongo.BashTrs = make([]interface{}, mongo.BashNum)
 		mongo.BashRes = make([]interface{}, mongo.BashNum)
 		
-		// print("50 total applytransaction time is ", fmt.Sprintf("%s", time.Since(mongo.Start)), "\n")
-		// print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
+		print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
 
 	return receipt, gas, err
