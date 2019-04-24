@@ -761,11 +761,12 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	// rule) and treat as an error, if the ruleset is frontier we must
 	// ignore this error and pretend the operation was successful.
 	
-	newaddr := interpreter.intPool.getZero()
-
+	newaddr := big.NewInt()
 	if interpreter.evm.ChainConfig().IsHomestead(interpreter.evm.BlockNumber) && suberr == ErrCodeStoreOutOfGas {
+		newaddr = interpreter.intPool.getZero()
 		stack.push(newaddr)
 	} else if suberr != nil && suberr != ErrCodeStoreOutOfGas {
+		newaddr = interpreter.intPool.getZero()
 		stack.push(newaddr)
 	} else {
 		newaddr = interpreter.intPool.get().SetBytes(addr.Bytes())
@@ -775,7 +776,6 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	interpreter.intPool.put(value, offset, size)
 
 	if suberr == errExecutionReverted {
-
 		return res, newaddr.String(), nil
 	}
 
@@ -796,9 +796,10 @@ func opCreate2(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memo
 	contract.UseGas(gas)
 	res, addr, returnGas, suberr := interpreter.evm.Create2(contract, input, gas, endowment, salt)
 	
-	newaddr := interpreter.intPool.getZero()
+	newaddr := big.NewInt()
 	// Push item on the stack based on the returned error.
 	if suberr != nil {
+		newaddr = interpreter.intPool.getZero()
 		stack.push(newaddr)
 	} else {
 		newaddr = interpreter.intPool.get().SetBytes(addr.Bytes())
@@ -830,9 +831,9 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	}
 	ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
 
-	success := interpreter.intPool.getZero()
-
+	success := big.NewInt()
 	if err != nil {
+		success = interpreter.intPool.getZero()
 		stack.push(success)
 	} else {
 		success = interpreter.intPool.get().SetUint64(1)
@@ -868,10 +869,10 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 		gas += params.CallStipend
 	}
 
-	success := interpreter.intPool.getZero()
-
 	ret, returnGas, err := interpreter.evm.CallCode(contract, toAddr, args, gas, value)
+	success := big.NewInt()
 	if err != nil {
+		success = interpreter.intPool.getZero()
 		stack.push(success)
 	} else {
 		success = interpreter.intPool.get().SetUint64(1)
@@ -902,10 +903,10 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 	// Get arguments from the memory.
 	args := memory.Get(inOffset.Int64(), inSize.Int64())
 
-	success := interpreter.intPool.getZero()
-
 	ret, returnGas, err := interpreter.evm.DelegateCall(contract, toAddr, args, gas)
+	success = big.NewInt()
 	if err != nil {
+		success = interpreter.intPool.getZero()
 		stack.push(success)
 	} else {
 		success = interpreter.intPool.get().SetUint64(1)
@@ -936,10 +937,10 @@ func opStaticCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, m
 	// Get arguments from the memory.
 	args := memory.Get(inOffset.Int64(), inSize.Int64())
 
-	success := interpreter.intPool.getZero()
-
+	success := big.NewInt()
 	ret, returnGas, err := interpreter.evm.StaticCall(contract, toAddr, args, gas)
 	if err != nil {
+		success = interpreter.intPool.getZero()
 		stack.push(success)
 	} else {
 		success = interpreter.intPool.get().SetUint64(1)
@@ -967,7 +968,7 @@ func opReturn(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	interpreter.intPool.put(offset, size)
 
 	returnreturn := new(big.Int)
-        returnreturn.SetBytes(ret)
+    returnreturn.SetBytes(ret)
 	return ret, returnreturn.String(), nil
 }
 
@@ -978,7 +979,7 @@ func opRevert(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	interpreter.intPool.put(offset, size)
 	
 	returnrevert := new(big.Int)
-        returnrevert.SetBytes(ret)
+    returnrevert.SetBytes(ret)
 	return ret, returnrevert.String(), nil
 }
 

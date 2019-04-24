@@ -97,11 +97,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
-	// if mongo.CurrentNum == 0 {
-	// 	mongo.Start = time.Now()
-	// }
-	
-	// print("transaction hash is ", tx.Hash().Hex(), "\n")
 	mongo.CurrentTx = tx.Hash().Hex()
 	mongo.TraceGlobal = ""
 	mongo.TxVMErr = ""
@@ -185,7 +180,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
 	} else {
-		start := time.Now()
+		// start := time.Now()
 		db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
@@ -238,8 +233,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		mongo.BashTxs = make([]interface{}, mongo.BashNum)
 		mongo.BashTrs = make([]interface{}, mongo.BashNum)
 		mongo.BashRes = make([]interface{}, mongo.BashNum)
-		
-		print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
+		// print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
 
 	return receipt, gas, err
