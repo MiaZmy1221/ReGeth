@@ -32,8 +32,6 @@ type Rece struct{
 	Re_CumulativeGasUsed string
 	// from
 	Re_GasUsed string
-	Re_Logs string
-	Re_LogsBloom string
 	Re_Status  string
 	// to
 	Re_TxHash string

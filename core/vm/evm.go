@@ -61,7 +61,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				}(evm.interpreter)
 				evm.interpreter = interpreter
 			}
-			return interpreter.RunWithFlag(contract, input, readOnly, evm.redundency)
+			return interpreter.Run(contract, input, readOnly, evm.redundency)
 			// return interpreter.Run(contract, input, readOnly)
 		}
 	}

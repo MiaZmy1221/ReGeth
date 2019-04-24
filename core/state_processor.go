@@ -167,14 +167,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
 	// write receipt to the array
-	re_final_log := ""
-	for i := 0; i < len(receipt.Logs); i++ {
-	        res, _ := json.Marshal(receipt.Logs[i])
-	        re_final_log = fmt.Sprintf("%s\n%s", re_final_log, string(res))
-	}
 	mongo.BashRes[mongo.CurrentNum] = mongo.Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
-			fmt.Sprintf("%d", receipt.GasUsed), re_final_log, fmt.Sprintf("0x%x", receipt.Bloom.Big()), fmt.Sprintf("0x%d", receipt.Status), 
-			receipt.TxHash.Hex(), mongo.TxVMErr}
+			fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("0x%d", receipt.Status), receipt.TxHash.Hex(), mongo.TxVMErr}
 
 	// bash write bash number of transactions, receipts and traces into the db
 	if mongo.CurrentNum != mongo.BashNum - 1 {
@@ -230,9 +224,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		}
 
 		mongo.CurrentNum = 0
-		mongo.BashTxs = make([]interface{}, mongo.BashNum)
-		mongo.BashTrs = make([]interface{}, mongo.BashNum)
-		mongo.BashRes = make([]interface{}, mongo.BashNum)
 		// print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
 

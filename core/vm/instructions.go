@@ -904,7 +904,7 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 	args := memory.Get(inOffset.Int64(), inSize.Int64())
 
 	ret, returnGas, err := interpreter.evm.DelegateCall(contract, toAddr, args, gas)
-	success = new(big.Int)
+	success := new(big.Int)
 	if err != nil {
 		success = interpreter.intPool.getZero()
 		stack.push(success)
