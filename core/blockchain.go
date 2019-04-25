@@ -1222,6 +1222,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil; block, err = it.next() {
+
 		print("insertChain enter loop,  beginning", "\n")
 		start_tempt := time.Now()
 
@@ -1230,11 +1231,20 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 			log.Debug("Premature abort during blocks processing")
 			break
 		}
+
+		print("insertChain inside loop 0, time is ", fmt.Sprintf("%s", time.Since(start_tempt)) , "\n")
+		start_tempt1 := time.Now()
+
 		// If the header is a banned one, straight out abort
 		if BadHashes[block.Hash()] {
 			bc.reportBlock(block, nil, ErrBlacklistedHash)
 			return it.index, events, coalescedLogs, ErrBlacklistedHash
 		}
+
+
+		print("insertChain inside loop 1, time is ", fmt.Sprintf("%s", time.Since(start_tempt1)) , "\n")
+		start_tempt2 := time.Now()
+
 		// Retrieve the parent block and it's state to execute on top
 		start := time.Now()
 
@@ -1246,6 +1256,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		if err != nil {
 			return it.index, events, coalescedLogs, err
 		}
+
+		print("insertChain inside loop 2, time is ", fmt.Sprintf("%s", time.Since(start_tempt2)) , "\n")
+		start_tempt3 := time.Now()
+
 		// If we have a followup block, run that against the current state to pre-cache
 		// transactions and probabilistically some of the account/storage trie nodes.
 		var followupInterrupt uint32
@@ -1263,6 +1277,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 				}(time.Now())
 			}
 		}
+
+		print("insertChain inside loop 3, time is ", fmt.Sprintf("%s", time.Since(start_tempt3)) , "\n")
+		start_tempt4 := time.Now()
+
 		// Process block using the parent state as reference point
 		substart := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
@@ -1283,6 +1301,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 
 		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
 
+		print("insertChain inside loop 4, time is ", fmt.Sprintf("%s", time.Since(start_tempt4)) , "\n")
+		start_tempt5 := time.Now()
+
 		// Validate the state using the default validator
 		substart = time.Now()
 		if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
@@ -1297,6 +1318,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
 
 		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
+
+		print("insertChain inside loop 5, time is ", fmt.Sprintf("%s", time.Since(start_tempt5)) , "\n")
+		start_tempt6 := time.Now()
 
 		// Write the block to the chain and get the status.
 		substart = time.Now()
@@ -1313,6 +1337,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 
 		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits)
 		blockInsertTimer.UpdateSince(start)
+
+		print("insertChain inside loop 6, time is ", fmt.Sprintf("%s", time.Since(start_tempt6)) , "\n")
+		start_tempt7 := time.Now()
 
 		switch status {
 		case CanonStatTy:
@@ -1335,17 +1362,21 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 				"root", block.Root())
 			events = append(events, ChainSideEvent{block})
 		}
+
+		print("insertChain inside loop 7, time is ", fmt.Sprintf("%s", time.Since(start_tempt7)) , "\n")
+		start_tempt8 := time.Now()
+
 		stats.processed++
 		stats.usedGas += usedGas
 
 		dirty, _ := bc.stateCache.TrieDB().Size()
 
-		print("insertChain enter loop end and before report, time is ", fmt.Sprintf("%s", time.Since(start_tempt)) , "\n")
-		start_report := time.Now()
+		print("insertChain enter loop end and before report, time is ", fmt.Sprintf("%s", time.Since(start_tempt8)) , "\n")
+		start_tempt9 := time.Now()
 
 		stats.report(chain, it.index, dirty)
 
-		print("insertChain enter loop end and after report, time is ", fmt.Sprintf("%s", time.Since(start_report)) , "\n")
+		print("insertChain enter loop end and after report, time is ", fmt.Sprintf("%s", time.Since(start_tempt9)) , "\n")
 	}
 	// Any blocks remaining here? The only ones we care about are the future ones
 	if block != nil && err == consensus.ErrFutureBlock {
