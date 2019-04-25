@@ -185,6 +185,9 @@ func (st *StateTransition) preCheck() error {
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
+	print("at the beginning of the transitiondb\n")
+	start_tempt11 := time.Now()
+
 	if err = st.preCheck(); err != nil {
 		return
 	}
@@ -209,6 +212,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+
+	print("stage1.1 time is ", fmt.Sprintf("%s", time.Since(start_tempt11)) , "\n")
+	start_tempt12 := time.Now()
+
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {
@@ -216,6 +223,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
+
+	print("stage1.2 time is ", fmt.Sprintf("%s", time.Since(start_tempt12)) , "\n")
+	start_tempt13 := time.Now()
+
 	if vmerr != nil {
 		mongo.TxVMErr = vmerr.Error()
 
@@ -224,11 +235,24 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// sufficient balance to make the transfer happen. The first
 		// balance transfer may never fail.
 		if vmerr == vm.ErrInsufficientBalance {
+
+			print("stage1.3.1 return, time is ", fmt.Sprintf("%s", time.Since(start_tempt13)) , "\n")
+
 			return nil, 0, false, vmerr
 		}
 	}
+
+	print("stage1.3.2 normal time is ", fmt.Sprintf("%s", time.Since(start_tempt13)) , "\n")
+	start_tempt14 := time.Now()
+
 	st.refundGas()
+
+	print("stage1.4 time is ", fmt.Sprintf("%s", time.Since(start_tempt14)) , "\n")
+	start_tempt15 := time.Now()
+
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+
+	print("stage1.5 time is ", fmt.Sprintf("%s", time.Since(start_tempt15)) , "\n")
 
 	return ret, st.gasUsed(), vmerr != nil, err
 }
