@@ -1155,6 +1155,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		lastCanon     *types.Block
 		coalescedLogs []*types.Log
 	)
+
+	start_1 := time.Now()
+
 	// Start the parallel header verifier
 	headers := make([]*types.Header, len(chain))
 	seals := make([]bool, len(chain))
@@ -1186,6 +1189,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		// Falls through to the block import
 	}
 
+	print("insertChain before switch, time is ", fmt.Sprintf("%s", time.Since(start_1)) , "\n")
+	start_2 := time.Now()
+
 	switch {
 	// First block is pruned, insert as sidechain and reorg only if TD grows enough
 	case err == consensus.ErrPrunedAncestor:
@@ -1211,8 +1217,14 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		bc.reportBlock(block, nil, err)
 		return it.index, events, coalescedLogs, err
 	}
+
+	print("insertChain after switch and before loop, time is ", fmt.Sprintf("%s", time.Since(start_2)) , "\n")
+
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil; block, err = it.next() {
+		print("insertChain enter loop,  beginning", "\n")
+		start_tempt := time.Now()
+
 		// If the chain is terminating, stop processing blocks
 		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 			log.Debug("Premature abort during blocks processing")
@@ -1327,7 +1339,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		stats.usedGas += usedGas
 
 		dirty, _ := bc.stateCache.TrieDB().Size()
+
+		print("insertChain enter loop end and before report, time is ", fmt.Sprintf("%s", time.Since(start_tempt)) , "\n")
+		start_report := time.Now()
+
 		stats.report(chain, it.index, dirty)
+
+		print("insertChain enter loop end and after report, time is ", fmt.Sprintf("%s", time.Since(start_report)) , "\n")
 	}
 	// Any blocks remaining here? The only ones we care about are the future ones
 	if block != nil && err == consensus.ErrFutureBlock {
