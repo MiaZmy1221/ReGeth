@@ -121,8 +121,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		return nil, 0, err
 	}
 
+	print("stage1.1 time is ", fmt.Sprintf("%s", time.Since(start_tempt1)) , "\n")
+	start_tempt11 := time.Now()
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
+
+	print("stage1.2 time is ", fmt.Sprintf("%s", time.Since(start_tempt11)) , "\n")
+	start_tempt12 := time.Now()
 
 	toaddr := ""
 	if msg.To() == nil {
@@ -139,15 +145,24 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 					fmt.Sprintf("0x%x", tx.R()), fmt.Sprintf("0x%x", tx.S()), toaddr, 
 					fmt.Sprintf("0x%x", statedb.TxIndex()), fmt.Sprintf("0x%x", tx.V()), msg.Value().String()}
 
+	print("stage1.3 time is ", fmt.Sprintf("%s", time.Since(start_tempt12)) , "\n")
+	start_tempt13 := time.Now()
+
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	// vmenv := vm.NewEVM(context, statedb, config, cfg)
 	vmenv := vm.NewEVMWithFlag(context, statedb, config, cfg, false)
 
+	print("stage1.4 time is ", fmt.Sprintf("%s", time.Since(start_tempt13)) , "\n")
+	start_tempt14 := time.Now()
+
 	// Apply the transaction to the current state (included in the env)
 	// Double clean the trace to prevent duplications
 	mongo.TraceGlobal = ""
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+
+	print("stage1.5 time is ", fmt.Sprintf("%s", time.Since(start_tempt14)) , "\n")
+	start_tempt15 := time.Now()
 
 	// write trace to the array
 	mongo.BashTrs[mongo.CurrentNum] = mongo.Trace{tx.Hash().Hex(), mongo.TraceGlobal}
@@ -164,6 +179,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
 	*usedGas += gas
+
+	print("stage1.6 time is ", fmt.Sprintf("%s", time.Since(start_tempt15)) , "\n")
+	start_tempt16 := time.Now()
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.
@@ -185,7 +203,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	mongo.BashRes[mongo.CurrentNum] = mongo.Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
 			fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("0x%d", receipt.Status), receipt.TxHash.Hex(), mongo.TxVMErr}
 
-	print("apply the transaction, before mongodb ", fmt.Sprintf("%s", time.Since(start_tempt1)) , "\n")
+	print("apply the transaction, before mongodb ", fmt.Sprintf("%s", time.Since(start_tempt16)) , "\n")
 	start_tempt2 := time.Now()
 
 	// bash write bash number of transactions, receipts and traces into the db
