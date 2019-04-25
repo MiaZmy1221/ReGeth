@@ -151,7 +151,7 @@ func opExp(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *
 func opSignExtend(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, string, error) {
 	back := stack.pop()
 
-	if back.Cmp(new(big.Int)(31)) < 0 {
+	if back.Cmp(big.NewInt(31)) < 0 {
 		bit := uint(back.Uint64()*8 + 7)
 		num := stack.pop()
 
@@ -1033,7 +1033,7 @@ func opPush1(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 	)
 	*pc += 1
 
-	value :=  new(big.Int)(0)
+	value := big.NewInt(0)
 	if *pc < codeLen {
 		value = integer.SetUint64(uint64(contract.Code[*pc]))
 		stack.push(value)
