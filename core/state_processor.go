@@ -64,6 +64,9 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	print("at the beginning of the process\n")
+	start_tempt1 := time.Now()
+
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -75,8 +78,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+
+	print("before process all the transactions , time is ", fmt.Sprintf("%s", time.Since(start_tempt1)) , "\n")
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
+		print("transaction tx ", tx.Hash().Hex(), "\n")
+		start_tempt2 := time.Now()
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
@@ -84,6 +93,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+
+		print("apply the transactions time is ", fmt.Sprintf("%s", time.Since(start_tempt2)) , "\n")
+
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
@@ -97,6 +109,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+	print("at the beginning of the applytransaction\n")
+	start_tempt1 := time.Now()
+
 	mongo.CurrentTx = tx.Hash().Hex()
 	mongo.TraceGlobal = ""
 	mongo.TxVMErr = ""
@@ -170,6 +185,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	mongo.BashRes[mongo.CurrentNum] = mongo.Rece{receipt.ContractAddress.String(), fmt.Sprintf("%d", receipt.CumulativeGasUsed),
 			fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("0x%d", receipt.Status), receipt.TxHash.Hex(), mongo.TxVMErr}
 
+	print("apply the transaction, before mongodb ", fmt.Sprintf("%s", time.Since(start_tempt1)) , "\n")
+	start_tempt2 := time.Now()
+
 	// bash write bash number of transactions, receipts and traces into the db
 	if mongo.CurrentNum != mongo.BashNum - 1 {
 		mongo.CurrentNum = mongo.CurrentNum + 1
@@ -224,8 +242,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		}
 
 		mongo.CurrentNum = 0
-		// print("50 total db time is ", fmt.Sprintf("%s", time.Since(start)) , "\n")
 	}
+
+	print("apply the transaction after mongodb time is ", fmt.Sprintf("%s", time.Since(start_tempt2)) , "\n")
 
 	return receipt, gas, err
 }

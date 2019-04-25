@@ -1283,7 +1283,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 
 		// Process block using the parent state as reference point
 		substart := time.Now()
+
+		start_tempt41 := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
+		print("insertChain inside loop 41, process all the transactions , total time is ", fmt.Sprintf("%s", time.Since(start_tempt41)) , "\n")
+
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			atomic.StoreUint32(&followupInterrupt, 1)
