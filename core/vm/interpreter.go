@@ -29,6 +29,7 @@ import (
 	// "gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
 	// "os"
+	"strconv"
 )
 
 // Config are the configuration options for the Interpreter
@@ -256,12 +257,28 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool, r
 		res, vandal_constant, err = operation.execute(&pc, in, contract, mem, stack)
 
 		// To avoid prefetch
-		if redundency == false {
-			if mongo.TraceGlobal == "" {
-				mongo.TraceGlobal = fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant)
-			} else {
-				mongo.TraceGlobal = fmt.Sprintf("%s|%d;%s;%s", mongo.TraceGlobal, old_pc, op.String(), vandal_constant)
+		if mongo.CurrentBlockNum >= 1806000 {
+			if redundency == false {
+				// if mongo.TraceGlobal.String() == "" {
+					// mongo.TraceGlobal.WriteString(strconv.FormatUint(old_pc, 10))
+					// mongo.TraceGlobal.WriteString(";")
+					// mongo.TraceGlobal.WriteString(op.String())
+					// mongo.TraceGlobal.WriteString(";")
+					// mongo.TraceGlobal.WriteString(vandal_constant)
+					// fmt.Fprintf(mongo.TraceGlobal, "%d;%s;%s",old_pc, op.String(), vandal_constant)
+					// mongo.TraceGlobal.WriteString(fmt.Sprintf("%d;%s;%s", old_pc, op.String(), vandal_constant))
+				// } else {
+				mongo.TraceGlobal.WriteString("|")
+				mongo.TraceGlobal.WriteString(strconv.FormatUint(old_pc, 10))
+				mongo.TraceGlobal.WriteString(";")
+				mongo.TraceGlobal.WriteString(op.String())
+				mongo.TraceGlobal.WriteString(";")
+				mongo.TraceGlobal.WriteString(vandal_constant)
+					// fmt.Fprintf(mongo.TraceGlobal, "|%d;%s;%s",old_pc, op.String(), vandal_constant)
+					// mongo.TraceGlobal.WriteString(fmt.Sprintf("|%d;%s;%s", old_pc, op.String(), vandal_constant))
+				// }
 			}
+
 		}
 
 		// f.WriteString(fmt.Sprintf("%d;%s;%s\n", old_pc, op.String(), vandal_constant))

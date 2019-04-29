@@ -41,6 +41,9 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/node"
 	cli "gopkg.in/urfave/cli.v1"
+
+	// "net/http"
+	// _ "net/http/pprof"
 )
 
 const (
@@ -268,6 +271,10 @@ func init() {
 }
 
 func main() {
+	// go func() {
+	//	http.ListenAndServe("localhost:6060", nil)
+	// }()
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

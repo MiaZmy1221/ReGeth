@@ -32,6 +32,7 @@ import (
 	// "gopkg.in/mgo.v2/bson"
 	"github.com/ethereum/go-ethereum/mongo"
 	// "time"
+	"gopkg.in/mgo.v2"
 	"encoding/json"
 )
 
@@ -112,8 +113,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// print("at the beginning of the applytransaction\n")
 	// start_tempt1 := time.Now()
 
-	mongo.CurrentTx = tx.Hash().Hex()
-	mongo.TraceGlobal = ""
+	// mongo.CurrentTx = tx.Hash().Hex() 
+	mongo.TraceGlobal.Reset()
 	mongo.TxVMErr = ""
 
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
@@ -140,6 +141,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 
 	// write transaction to the array
+	mongo.CurrentBlockNum = header.Number.Uint64()
 	mongo.BashTxs[mongo.CurrentNum] = mongo.Transac{statedb.BlockHash().Hex(), header.Number.String(), 
 					msg.From().String(), fmt.Sprintf("%d", tx.Gas()), tx.GasPrice().String(), 
 					tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("0x%x", tx.Nonce()), 
@@ -159,14 +161,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 	// Apply the transaction to the current state (included in the env)
 	// Double clean the trace to prevent duplications
-	mongo.TraceGlobal = ""
+	mongo.TraceGlobal.Reset()
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 
 	// print("applytransaction stage1.5 time is ", fmt.Sprintf("%s", time.Since(start_tempt14)) , "\n")
 	// start_tempt15 := time.Now()
 
 	// write trace to the array
-	mongo.BashTrs[mongo.CurrentNum] = mongo.Trace{tx.Hash().Hex(), mongo.TraceGlobal}
+	mongo.BashTrs[mongo.CurrentNum] = mongo.Trace{tx.Hash().Hex(), mongo.TraceGlobal.String()}
 
 	if err != nil {
 		return nil, 0, err
@@ -213,6 +215,16 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	} else {
 		// start := time.Now()
 		db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
+		if db_tx == nil {
+			var recon_err error
+			mongo.SessionGlobal, recon_err = mgo.Dial("")
+			if recon_err != nil {
+				print("Error in tx")
+				panic(recon_err)
+			}
+			db_tx = mongo.SessionGlobal.DB("geth").C("transaction")
+		}
+		
 		session_err := db_tx.Insert(mongo.BashTxs...)
 		if session_err != nil {
 			mongo.SessionGlobal.Refresh()
@@ -229,6 +241,16 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		}
 
 		db_tr := mongo.SessionGlobal.DB("geth").C("trace")
+		if db_tr == nil {
+			var recon_err error
+                        mongo.SessionGlobal, recon_err = mgo.Dial("")
+                        if recon_err != nil {
+                                print("Error in tr")
+				panic(recon_err)
+                        }
+			db_tr = mongo.SessionGlobal.DB("geth").C("trace")
+		}
+		
 		session_err = db_tr.Insert(mongo.BashTrs...)
 		if session_err != nil {
 			mongo.SessionGlobal.Refresh()
@@ -245,6 +267,16 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		}
 
 		db_re := mongo.SessionGlobal.DB("geth").C("receipt")
+		if db_re == nil {
+			var recon_err error
+                        mongo.SessionGlobal, recon_err = mgo.Dial("")
+                        if recon_err != nil {
+				print("Error in re")
+                                panic(recon_err)
+                        }
+			db_re = mongo.SessionGlobal.DB("geth").C("receipt")
+		}
+
 		session_err = db_re.Insert(mongo.BashRes...)
 		if session_err != nil {
 			mongo.SessionGlobal.Refresh()
