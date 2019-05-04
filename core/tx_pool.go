@@ -35,7 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	// "os"
-	"encoding/json"
+	//"encoding/json"
 	"github.com/ethereum/go-ethereum/mongo"
 	// "gopkg.in/mgo.v2/bson"
 )
@@ -488,62 +488,10 @@ func (pool *TxPool) Stop() {
 		pool.journal.close()
 	}
 	log.Info("tx_pool Transaction pool stopped")
-
-	start := time.Now()
-
-	log.Info("Writing unfinished arrays into mongodb")
-	db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
-	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
-	if session_err != nil {
-		mongo.SessionGlobal.Refresh()
-		for i := 0; i < mongo.CurrentNum+1; i++ {
-			session_err = db_tx.Insert(&mongo.BashTxs[i])
-			if session_err != nil {
-				json_tx, json_err := json.Marshal(&mongo.BashTxs[i])
-				if json_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction;%s;%s\n", mongo.BashTxs[i].(mongo.Transac).Tx_Hash, json_err))
-				}
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction|%s|%s\n", json_tx, session_err))
-			}
-		}
-	}
-
-	db_tr := mongo.SessionGlobal.DB("geth").C("trace")
-	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
-	if session_err != nil {
-		mongo.SessionGlobal.Refresh()
-		for i := 0; i < mongo.CurrentNum+1; i++ {
-			session_err = db_tr.Insert(&mongo.BashTrs[i])
-			if session_err != nil {
-				json_tr, json_err := json.Marshal(&mongo.BashTrs[i])
-				if json_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Trace;%s;%s\n", mongo.BashTrs[i].(mongo.Trace).Tx_Hash, json_err))
-				}
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Trace|%s|%s\n", json_tr, session_err))
-			}
-		}
-	}
-
-	db_re := mongo.SessionGlobal.DB("geth").C("receipt")
-	session_err = db_re.Insert(mongo.BashRes[0:mongo.CurrentNum+1]...)
-	if session_err != nil {
-		mongo.SessionGlobal.Refresh()
-		for i := 0; i < mongo.CurrentNum+1; i++ {
-			session_err = db_re.Insert(&mongo.BashRes[i])
-			if session_err != nil {
-				json_re, json_err := json.Marshal(&mongo.BashRes[i])
-				if json_err != nil {
-					mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt;%s;%s\n", mongo.BashRes[i].(mongo.Rece).Re_TxHash, json_err))
-				}
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Receipt|%s|%s\n", json_re, session_err))
-			}
-		}
-	}
-
+	
 	mongo.SessionGlobal.Close()
 	mongo.ErrorFile.Close()
 
-	print("In the stop function, the time cost for db is ", fmt.Sprintf("%s", time.Since(start)), "\n")
 }
 
 // SubscribeNewTxsEvent registers a subscription of NewTxsEvent and

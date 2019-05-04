@@ -2,6 +2,7 @@ package mongo
 
 // Databse 1, store the basic transaction metadata
 type Transac struct {
+	// Transaction 
 	Tx_BlockHash string
 	Tx_BlockNum string 
 	Tx_FromAddr string
@@ -10,12 +11,17 @@ type Transac struct {
 	Tx_Hash string 
 	Tx_Input string 
 	Tx_Nonce string
-	Tx_R string
- 	Tx_S string
 	Tx_ToAddr string
 	Tx_Index string
-	Tx_V string
 	Tx_Value string
+
+	Tx_Trace string
+
+	Re_contractAddress string
+	Re_CumulativeGasUsed string
+	Re_GasUsed string
+	Re_Status  string
+	Re_FailReason string
 }
 
 // Database 2, store the basic transaction metadata
@@ -40,8 +46,8 @@ type Rece struct{
 	Re_FailReason string
 }
 
-var BashNum int = 50
-var BashTxs = make([]interface{}, BashNum)
-var BashTrs = make([]interface{}, BashNum)
-var BashRes = make([]interface{}, BashNum)
-var CurrentNum int = 0
+// var BashNum int = 50
+// var BashTxs = make([]interface{}, BashNum)
+// var BashTrs = make([]interface{}, BashNum)
+// var BashRes = make([]interface{}, BashNum)
+// var CurrentNum int = 0
