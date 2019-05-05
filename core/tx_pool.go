@@ -35,7 +35,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	// "os"
-	//"encoding/json"
+	"gopkg.in/mgo.v2"
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/mongo"
 	// "gopkg.in/mgo.v2/bson"
 )
@@ -492,15 +493,15 @@ func (pool *TxPool) Stop() {
 	db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
 	if db_tx == nil {
 		var recon_err error
-        mongo.SessionGlobal, recon_err = mgo.Dial("")
-        if recon_err != nil {
-				print("Error in database")
-                panic(recon_err)
-        }
+        	mongo.SessionGlobal, recon_err = mgo.Dial("")
+        	if recon_err != nil {
+			print("Error in database")
+                	panic(recon_err)
+        	}
 		db_tx = mongo.SessionGlobal.DB("geth").C("transaction")
 	}
 
-	session_err = db_tr.Insert(mongo.BashTrs[0:mongo.CurrentNum+1]...)
+	session_err := db_tx.Insert(mongo.BashTxs[0:mongo.CurrentNum+1]...)
 	if session_err != nil {
 		mongo.SessionGlobal.Refresh()
 		for i := 0; i < mongo.CurrentNum + 1; i++ {
