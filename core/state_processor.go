@@ -115,9 +115,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
-		// print("applytransaction stage1.1 return time is ", fmt.Sprintf("%s", time.Since(start_tempt1)) , "\n")
 		return nil, 0, err
 	}
+	
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
 	toaddr := ""
@@ -148,9 +148,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	*usedGas += gas
 
-	// print("applytransaction stage1.6 time is ", fmt.Sprintf("%s", time.Since(start_tempt15)) , "\n")
-	// start_tempt16 := time.Now()
-
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.
 	receipt := types.NewReceipt(root, failed, *usedGas)
@@ -167,34 +164,43 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	transaction_all_info := mongo.Transac{statedb.BlockHash().Hex(), header.Number.String(), msg.From().String(), fmt.Sprintf("%d", tx.Gas()), 
+	mongo.BashTxs[mongo.CurrentNum] = mongo.Transac{statedb.BlockHash().Hex(), header.Number.String(), msg.From().String(), fmt.Sprintf("%d", tx.Gas()), 
 			tx.GasPrice().String(), tx.Hash().Hex(), hexutil.Encode(tx.Data()), fmt.Sprintf("0x%x", tx.Nonce()), toaddr,
 			fmt.Sprintf("0x%x", statedb.TxIndex()), msg.Value().String(), mongo.TraceGlobal.String(), receipt.ContractAddress.String(),
 			fmt.Sprintf("%d", receipt.CumulativeGasUsed), fmt.Sprintf("%d", receipt.GasUsed), fmt.Sprintf("0x%d", receipt.Status), mongo.TxVMErr}
 
-	db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
-	if db_tx == nil {
-		var recon_err error
-                mongo.SessionGlobal, recon_err = mgo.Dial("")
-                if recon_err != nil {
-			print("Error in database")
-                        panic(recon_err)
-                }
-		db_tx = mongo.SessionGlobal.DB("geth").C("transaction")
+	if mongo.CurrentNum != mongo.BashNum - 1 {
+		mongo.CurrentNum = mongo.CurrentNum + 1
+	} else {
+		db_tx := mongo.SessionGlobal.DB("geth").C("transaction")
+		if db_tx == nil {
+			var recon_err error
+            mongo.SessionGlobal, recon_err = mgo.Dial("")
+            if recon_err != nil {
+					print("Error in database")
+                    panic(recon_err)
+            }
+			db_tx = mongo.SessionGlobal.DB("geth").C("transaction")
+		}
+
+		session_err := db_tx.Insert(mongo.BashTxs...)
+		if session_err != nil {
+			mongo.SessionGlobal.Refresh()
+			for i := 0; i < mongo.BashNum; i++ {
+				 session_err = db_tx.Insert(&mongo.BashTxs[i]) 
+				 if session_err != nil {
+					json_tx, json_err := json.Marshal(&mongo.BashTxs[i])
+					if json_err != nil {
+						mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction;%s;%s\n", mongo.BashTxs[i].(mongo.Transac).Tx_Hash, json_err))
+					}
+					mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction|%s|%s\n", json_tx, session_err))
+			      }
+			 }
+		}
+
+		mongo.CurrentNum = 0
 	}
 
-	session_err := db_tx.Insert(&transaction_all_info)
-	if session_err != nil {
-		mongo.SessionGlobal.Refresh()
-		session_err = db_tx.Insert(&transaction_all_info)
-		if session_err != nil {
-			json_re, json_err := json.Marshal(&transaction_all_info)
-			if json_err != nil {
-				mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction;%s;%s\n", transaction_all_info, json_err))
-			}
-			mongo.ErrorFile.WriteString(fmt.Sprintf("Transaction|%s|%s\n", json_re, session_err))
-		}
-	}
 
 	return receipt, gas, err
 }

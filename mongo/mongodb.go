@@ -2,12 +2,10 @@ package mongo
 
 import (
 	"bytes"
-	//"time"
 	"os"
 	"gopkg.in/mgo.v2"
 )
 
-// var Start time.Time
 var SessionGlobal *mgo.Session
 var TraceGlobal = bytes.NewBuffer(make([]byte, 0, 10485760))
 var CurrentTx string

@@ -24,30 +24,6 @@ type Transac struct {
 	Re_FailReason string
 }
 
-// Database 2, store the basic transaction metadata
-type Trace struct {
-	Tx_Hash string
-	Tx_Trace string
-}
-
-// Database 3: receipt
-type Rece struct{
-	// BlockHash
-	// BlockNumber
-	Re_contractAddress string
-	Re_CumulativeGasUsed string
-	// from
-	Re_GasUsed string
-	Re_Status  string
-	// to
-	Re_TxHash string
-	// TransactionIndex
-	// Store the pre-execution error
-	Re_FailReason string
-}
-
-// var BashNum int = 50
-// var BashTxs = make([]interface{}, BashNum)
-// var BashTrs = make([]interface{}, BashNum)
-// var BashRes = make([]interface{}, BashNum)
-// var CurrentNum int = 0
+var BashNum int = 50
+var BashTxs = make([]interface{}, BashNum)
+var CurrentNum int = 0
